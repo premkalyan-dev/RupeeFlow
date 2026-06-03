@@ -1,10 +1,9 @@
 {
-  "projectId": "refreshing-network-glsxp",
-  "appId": "1:179220282417:web:f472cbd9e272319b046910",
-  "apiKey": "AIzaSyBNN3RuL7UR9d7ZNwg0ovj2Zqw-_lBsez4",
-  "authDomain": "refreshing-network-glsxp.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-eed8259a-f174-48cd-a0e5-439fb721c7db",
-  "storageBucket": "refreshing-network-glsxp.firebasestorage.app",
-  "messagingSenderId": "179220282417",
-  "measurementId": ""
+  "apiKey": "AIzaSyCWFVzE8_kD6GVAA8USxBzMB7pvgBhLa98",
+  "authDomain": "rupeeflow-2ff0e.firebaseapp.com",
+  "projectId": "rupeeflow-2ff0e",
+  "storageBucket": "rupeeflow-2ff0e.firebasestorage.app",
+  "messagingSenderId": "543235129996",
+  "appId": "1:543235129996:web:bf22d0b74914ad5975b1a9",
+  "measurementId": "G-CBXS0HDPZM"
 }
