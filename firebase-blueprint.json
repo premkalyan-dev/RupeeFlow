@@ -1,0 +1,112 @@
+{
+  "entities": {
+    "UserConfig": {
+      "title": "User Configuration",
+      "description": "Global user specific safety settings and targets.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "monthlyBudget": {
+          "type": "number",
+          "description": "Monthly safety limit target"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "monthlyBudget"]
+    },
+    "Transaction": {
+      "title": "Ledger Transaction",
+      "description": "An expense or saving log entry.",
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Log or note description"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Rupee value tracked"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["expense", "saving"]
+        },
+        "category": {
+          "type": "string",
+          "description": "Selectable category tags"
+        },
+        "date": {
+          "type": "string",
+          "description": "Session date of spending/saving"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["description", "amount", "type", "category", "date"]
+    },
+    "SavingsGoal": {
+      "title": "Savings Target",
+      "description": "A wealth accumulating milestone goal.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the target goal"
+        },
+        "targetAmount": {
+          "type": "number",
+          "description": "Target amount to accrue"
+        },
+        "currentAmount": {
+          "type": "number",
+          "description": "Currently stashed amount"
+        },
+        "category": {
+          "type": "string"
+        },
+        "deadline": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["name", "targetAmount", "currentAmount", "category", "deadline"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserConfig",
+      "description": "Stores user profiles with safety configurations."
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Tracks historical transaction ledgers."
+    },
+    "/users/{userId}/savingsGoals/{goalId}": {
+      "schema": "SavingsGoal",
+      "description": "Tracks accumulated milestones goals."
+    }
+  }
+}

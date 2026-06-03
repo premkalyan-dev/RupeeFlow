@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "SF Pro Display", -apple-system, sans-serif;
+  --font-heading: "Space Grotesk", "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-primary: #1e3a8a; /* Deep Blue bg-blue-900 */
+  --color-accent: #10b981;  /* Emerald Green bg-emerald-500 */
+}
+
+/* Custom scrollbar and ambient animation settings */
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.4);
+    border-radius: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 163, 175, 0.6);
+  }
+}

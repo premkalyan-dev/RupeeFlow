@@ -1,0 +1,6 @@
+{
+  "name": "RupeeFlow",
+  "description": "SpendWise India - Expense & Savings Tracker. Track budgets, expenses and savings goals in less than 30 seconds.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
