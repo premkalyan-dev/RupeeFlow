@@ -28,15 +28,12 @@ import {
   LogOut,
   Sun,
   Moon,
-  Info,
   ChevronRight,
   TrendingUp,
   Receipt,
   Download,
-  Database,
   Grid,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 
 const DashboardContent: React.FC = () => {
   const {
@@ -134,21 +131,7 @@ const DashboardContent: React.FC = () => {
           
           <MainLogo size={28} showSubtitle={false} className="shrink-0" />
 
-          {/* Quick status alerts badge */}
           <div className="hidden lg:flex items-center gap-2">
-            {auth.isLocalFallback ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] uppercase font-mono font-bold tracking-wider bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/50">
-                <Database className="w-3 h-3" />
-                <span>Local Sandbox</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] uppercase font-mono font-bold tracking-wider bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50">
-                <Database className="w-3 h-3 animate-pulse" />
-                <span>Firestore Connected</span>
-              </span>
-            )}
-
-            <span className="text-slate-350 dark:text-slate-600 font-light text-xs">|</span>
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate max-w-[150px]">
               {auth.user?.email}
             </span>
@@ -159,7 +142,7 @@ const DashboardContent: React.FC = () => {
             
             {/* Theme sliding toggle */}
             <button
-              onClick={() => setIsDark(!isDark)}
+              onClick={() => setIsDark((current) => !current)}
               className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 transition cursor-pointer flex items-center justify-center touch-manipulation"
               title="Toggle Theme"
             >
@@ -183,29 +166,6 @@ const DashboardContent: React.FC = () => {
 
       {/* 2. Primary Layout Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        
-        {/* Connection banner info alert link */}
-        <AnimatePresence>
-          {auth.isLocalFallback && (
-            <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              className="mb-6 p-3 rounded-2xl bg-gradient-to-r from-indigo-900/5 to-emerald-500/5 border border-slate-205 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-              id="offline-top-banner"
-            >
-              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                <Info className="w-4 h-4 text-indigo-900 dark:text-emerald-400 shrink-0" />
-                <span>
-                  <strong className="text-slate-900 dark:text-white">Offline Sandbox Mode:</strong> Real account verification simulators activated. You can connect your Google Firebase Firestore project coordinates via AI Studio anytime.
-                </span>
-              </div>
-              <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-slate-400 shrink-0">
-                Active Local Session
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* 3. Desktops Tabs (Navigation Side-by-side) */}
         <div className="hidden md:flex items-center gap-1.5 p-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 max-w-lg mb-6">
@@ -229,7 +189,7 @@ const DashboardContent: React.FC = () => {
             }`}
           >
             <Receipt className="w-3.5 h-3.5" />
-            <span>Ledger History</span>
+            <span>History</span>
           </button>
           <button
             onClick={() => setActiveTab('goals')}
@@ -251,7 +211,7 @@ const DashboardContent: React.FC = () => {
             }`}
           >
             <PieIcon className="w-3.5 h-3.5" />
-            <span>Analytics</span>
+            <span>Charts</span>
           </button>
         </div>
 
@@ -267,7 +227,7 @@ const DashboardContent: React.FC = () => {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">
-                      Spends (Current Month)
+                      Spending This Month
                     </p>
                     <h3 className="text-2xl font-extrabold text-indigo-950 dark:text-white font-sans mt-1">
                       {formatINR(currentMonthExpenses)}
@@ -278,7 +238,7 @@ const DashboardContent: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                  <span>Aggregate Life Expense:</span>
+                  <span>Total spent:</span>
                   <strong className="text-slate-600 dark:text-slate-350">{formatINR(totalExpenses)}</strong>
                 </div>
               </div>
@@ -300,7 +260,7 @@ const DashboardContent: React.FC = () => {
                 </div>
                 <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-1">
                   <TrendingUp className="w-3.5 h-3.5" />
-                  <span>Build wealth step-by-step</span>
+                  <span>Save money step by step</span>
                 </p>
               </div>
 
@@ -309,7 +269,7 @@ const DashboardContent: React.FC = () => {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">
-                      Remaining Safe Budget
+                      Money Left This Month
                     </p>
                     <h3 className={`text-2xl font-extrabold font-sans mt-1 ${remainingBudget <= 1000 ? 'text-red-500' : 'text-slate-900 dark:text-neutral-150'}`}>
                       {formatINR(remainingBudget)}
@@ -320,7 +280,7 @@ const DashboardContent: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-slate-450 dark:text-slate-500">
-                  <span>Out of limit:</span>
+                  <span>Monthly limit:</span>
                   <strong className="text-slate-650 dark:text-slate-350">{formatINR(budgetLimit)}</strong>
                 </div>
               </div>
@@ -331,10 +291,10 @@ const DashboardContent: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-gradient-to-r from-indigo-950 to-indigo-900 dark:from-slate-900 dark:to-slate-850 rounded-3xl text-white shadow-xl">
               <div>
                 <h3 className="font-heading font-extrabold text-base tracking-tight">
-                  Track dynamic spendings in 30 seconds
+                  Add your spending in 30 seconds
                 </h3>
                 <p className="text-xs text-indigo-200/80 dark:text-white/60 mt-1 max-w-sm">
-                  Quick record expenses, tea/chai stalls, grocery shops or savings additions instantly.
+                  Add daily costs, shopping, food, or savings quickly.
                 </p>
               </div>
               <button
@@ -343,7 +303,7 @@ const DashboardContent: React.FC = () => {
                 id="record-spend-dash-btn"
               >
                 <Plus className="w-4.5 h-4.5" />
-                <span>Record Spend / Save</span>
+                <span>Add Spend / Saving</span>
               </button>
             </div>
 
@@ -360,27 +320,27 @@ const DashboardContent: React.FC = () => {
                   <div className="flex items-center justify-between gap-2 pb-3 mb-2.5 border-b border-slate-50 dark:border-slate-800">
                     <h4 className="font-heading font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                       <Target className="w-4 h-4 text-emerald-500" />
-                      <span>Savings Targets Progress</span>
+                      <span>Savings Progress</span>
                     </h4>
                     <button
                       onClick={() => setActiveTab('goals')}
                       className="text-[10px] font-bold text-indigo-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
                     >
-                      <span>All Targets</span>
+                      <span>See All</span>
                       <ChevronRight className="w-3 h-3" />
                     </button>
                   </div>
 
                   {savingsGoals.length === 0 ? (
                     <div className="py-8 text-center text-xs text-slate-400">
-                      You have no active savings targets defined. Set targets under the Savings Goals tab.
+                      You have no savings goals yet. Add one from the Savings Goals tab.
                     </div>
                   ) : (
                     <div className="space-y-4">
                       <div className="flex items-end justify-between">
                         <div>
                           <p className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400">
-                            Aggregate Saved Wealth
+                            Total Saved
                           </p>
                           <h4 className="text-xl font-extrabold text-indigo-950 dark:text-white mt-1">
                             {formatINR(totalGoalsSaved)}{' '}
@@ -419,7 +379,7 @@ const DashboardContent: React.FC = () => {
                 </div>
 
                 <div className="pt-4 border-t border-slate-50 dark:border-slate-800/80 text-[10px] text-slate-400 leading-relaxed font-medium">
-                  Saving 20%+ of month-to-month income is a general metric for financial safety and stability.
+                  A simple habit: try to save some money every month.
                 </div>
               </div>
 
@@ -431,10 +391,10 @@ const DashboardContent: React.FC = () => {
                 <div>
                   <h4 className="font-heading font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                     <Receipt className="w-4 h-4 text-slate-400" />
-                    <span>Recent Session Ledger (Last 10)</span>
+                    <span>Recent Records (Last 10)</span>
                   </h4>
                   <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                    Quick audit, edit and delete entries directly from the dashboard card.
+                    Check, edit, or delete your latest records here.
                   </p>
                 </div>
 
@@ -443,7 +403,7 @@ const DashboardContent: React.FC = () => {
                   className="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-850 border border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-500 hover:text-indigo-900 transition flex items-center gap-1 whitespace-nowrap"
                 >
                   <Grid className="w-3.5 h-3.5" />
-                  <span>Show Full Ledger</span>
+                  <span>Show All Records</span>
                 </button>
               </div>
 
@@ -458,8 +418,8 @@ const DashboardContent: React.FC = () => {
                       <tr className="border-b border-slate-50 dark:border-slate-850 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
                         <th className="py-2.5 px-3">Date</th>
                         <th className="py-2.5 px-3">Category</th>
-                        <th className="py-2.5 px-3">Description</th>
-                        <th className="py-2.5 px-3">Type</th>
+                        <th className="py-2.5 px-3">Note</th>
+                        <th className="py-2.5 px-3">Kind</th>
                         <th className="py-2.5 px-3 text-right">Amount</th>
                         <th className="py-2.5 px-3 text-right">Actions</th>
                       </tr>
@@ -487,7 +447,7 @@ const DashboardContent: React.FC = () => {
                             <td className="py-3 px-3 whitespace-nowrap">
                               {tx.type === 'expense' ? (
                                 <span className="text-red-500 dark:text-red-400 font-bold text-[10px] uppercase font-mono tracking-widest">
-                                  Expense
+                                  Spending
                                 </span>
                               ) : (
                                 <span className="text-emerald-500 dark:text-emerald-400 font-bold text-[10px] uppercase font-mono tracking-widest">
@@ -511,7 +471,7 @@ const DashboardContent: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => {
-                                    if (confirm(`Delete transaction record: "${tx.description}"?`)) {
+                                    if (confirm(`Delete this record: "${tx.description}"?`)) {
                                       deleteTransaction(tx.id);
                                     }
                                   }}
@@ -534,17 +494,17 @@ const DashboardContent: React.FC = () => {
           </div>
         )}
 
-        {/* ----------------- VIEW 2: FULL LEDGER AUDIT & TIMELINE ----------------- */}
+        {/* ----------------- VIEW 2: HISTORY ----------------- */}
         {activeTab === 'history' && (
           <div className="space-y-6" id="history-tab-view">
             <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 rounded-3xl" id="full-ledger-filter-card">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-4 border-b border-slate-150 dark:border-slate-800">
                 <div>
                   <h3 className="font-heading font-bold text-base text-slate-900 dark:text-white">
-                    Full Ledger History
+                    Full History
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Manage and search all transaction listings registered in RupeeFlow database.
+                    Search and manage all your records.
                   </p>
                 </div>
 
@@ -554,7 +514,7 @@ const DashboardContent: React.FC = () => {
                     className="py-2.5 px-4 text-xs font-bold bg-indigo-900 hover:bg-indigo-950 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl shadow-md flex items-center justify-center gap-1 cursor-pointer transition"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Add Record</span>
+                    <span>Add New</span>
                   </button>
                 </div>
               </div>
@@ -565,7 +525,7 @@ const DashboardContent: React.FC = () => {
                   <Search className="w-4 h-4 absolute left-3 top-3" />
                   <input
                     type="text"
-                    placeholder="Search note or category description..."
+                    placeholder="Search note or category..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-9 pr-4 py-2.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-205 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-indigo-900/30"
@@ -584,7 +544,7 @@ const DashboardContent: React.FC = () => {
                         {cat}
                       </option>
                     ))}
-                    <option value="Savings">Savings Only</option>
+                    <option value="Savings">Only Savings</option>
                   </select>
                 </div>
 
@@ -604,7 +564,7 @@ const DashboardContent: React.FC = () => {
                         typeFilter === 'expense' ? 'bg-white dark:bg-slate-800 text-red-500 dark:text-red-400 shadow' : 'hover:text-slate-800'
                       }`}
                     >
-                      Spends
+                      Spending
                     </button>
                     <button
                       onClick={() => setTypeFilter('saving')}
@@ -632,8 +592,8 @@ const DashboardContent: React.FC = () => {
                       <tr className="border-b border-slate-50 dark:border-slate-850 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
                         <th className="py-2.5 px-3">Date</th>
                         <th className="py-2.5 px-3">Category</th>
-                        <th className="py-2.5 px-3">Description</th>
-                        <th className="py-2.5 px-3">Type</th>
+                        <th className="py-2.5 px-3">Note</th>
+                        <th className="py-2.5 px-3">Kind</th>
                         <th className="py-2.5 px-3 text-right">Amount</th>
                         <th className="py-2.5 px-3 text-right">Actions</th>
                       </tr>
@@ -661,7 +621,7 @@ const DashboardContent: React.FC = () => {
                             <td className="py-3 px-3">
                               {tx.type === 'expense' ? (
                                 <span className="text-red-500 dark:text-red-400 font-bold text-[10px] uppercase font-mono tracking-widest">
-                                  Expense
+                                  Spending
                                 </span>
                               ) : (
                                 <span className="text-emerald-500 dark:text-emerald-400 font-bold text-[10px] uppercase font-mono tracking-widest">
@@ -685,7 +645,7 @@ const DashboardContent: React.FC = () => {
                                 </button>
                                 <button
                                   onClick={() => {
-                                    if (confirm(`Delete transaction record: "${tx.description}"?`)) {
+                                    if (confirm(`Delete this record: "${tx.description}"?`)) {
                                       deleteTransaction(tx.id);
                                     }
                                   }}
@@ -719,10 +679,10 @@ const DashboardContent: React.FC = () => {
           <div className="space-y-6" id="analytics-tab-view">
             <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-5 rounded-3xl" id="analytics-header-card">
               <h3 className="font-heading font-bold text-base text-slate-900 dark:text-white">
-                Finances At-A-Glance
+                Money Overview
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Visualizing expense trend waves, category pie slices, and comparison bars. Inspired by Zerodha and Stripe ledger displays.
+                See your spending, savings, and goals in simple charts.
               </p>
             </div>
             
@@ -757,7 +717,7 @@ const DashboardContent: React.FC = () => {
             }`}
           >
             <Receipt className="w-4.5 h-4.5" />
-            <span>Ledger</span>
+            <span>History</span>
           </button>
 
           <button
@@ -781,13 +741,13 @@ const DashboardContent: React.FC = () => {
             }`}
           >
             <PieIcon className="w-4.5 h-4.5" />
-            <span>Analytics</span>
+            <span>Charts</span>
           </button>
 
         </div>
       </footer>
 
-      {/* 5. Ledger Entry CRUD Modal Frame */}
+      {/* 5. Record Modal */}
       <TransactionModal
         isOpen={modalOpen}
         onClose={() => {
@@ -809,7 +769,7 @@ function AppConsumer() {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center font-sans gap-4 text-xs tracking-wider uppercase font-bold text-slate-400">
         <div className="w-8 h-8 border-2 border-indigo-900 dark:border-emerald-500 border-t-transparent rounded-full animate-spin" />
-        <span>Spontaneous Sync Active...</span>
+        <span>Loading...</span>
       </div>
     );
   }

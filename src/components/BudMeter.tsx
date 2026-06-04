@@ -44,7 +44,7 @@ export const BudMeter: React.FC = () => {
 
     const parsed = parseFloat(budgetVal);
     if (isNaN(parsed) || parsed <= 0) {
-      setError('Please provide a budget limit greater than ₹0.');
+      setError('Please enter a budget greater than Rs. 0.');
       return;
     }
 
@@ -52,7 +52,7 @@ export const BudMeter: React.FC = () => {
       await updateBudget(parsed);
       setIsEditing(false);
     } catch (err: any) {
-      setError(err?.message || 'Error updating budget settings.');
+      setError(err?.message || 'Could not save your budget.');
     }
   };
 
@@ -65,10 +65,10 @@ export const BudMeter: React.FC = () => {
           </div>
           <div>
             <h3 className="font-heading font-bold text-sm text-slate-900 dark:text-white">
-              Monthly Safety Budget
+              Monthly Budget
             </h3>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
-              Keep spending in-bounds. Set limits and track alerts.
+              Set a limit and track your spending.
             </p>
           </div>
         </div>
@@ -77,7 +77,7 @@ export const BudMeter: React.FC = () => {
           <button
             onClick={() => setIsEditing(true)}
             className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-indigo-900 dark:hover:text-emerald-400 transition cursor-pointer flex items-center justify-center"
-            title="Configure Budget"
+            title="Edit Budget"
             id="edit-budget-trigger-btn"
           >
             <Edit2 className="w-4 h-4" />
@@ -103,7 +103,7 @@ export const BudMeter: React.FC = () => {
             
             <div>
               <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
-                New Target Limit (₹)
+                New Limit (Rs.)
               </label>
               <div className="flex gap-2">
                 <input
@@ -140,7 +140,7 @@ export const BudMeter: React.FC = () => {
       <div className="grid grid-cols-2 gap-4 my-2.5">
         <div>
           <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">
-            Safe Target Budget
+            Monthly Limit
           </span>
           <p className="text-lg font-extrabold text-indigo-950 dark:text-white mt-0.5">
             {formatINR(budgetLimit)}
@@ -189,7 +189,7 @@ export const BudMeter: React.FC = () => {
           <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-2xl flex items-start gap-2.5">
             <AlertTriangle className="w-4.5 h-4.5 text-red-500 shrink-0 mt-0.5 animate-bounce" />
             <div className="text-[11px] leading-relaxed text-red-700 dark:text-red-400">
-              <span className="font-bold">Overspent Warning!</span> You have exceeded your monthly safety target budget of {formatINR(budgetLimit)} by <span className="font-bold">{formatINR(currentMonthExpenses - budgetLimit)}</span>. Try postponing luxuries.
+              <span className="font-bold">You spent too much.</span> You are over your monthly budget of {formatINR(budgetLimit)} by <span className="font-bold">{formatINR(currentMonthExpenses - budgetLimit)}</span>. Try to cut extra spending.
             </div>
           </div>
         )}
@@ -198,7 +198,7 @@ export const BudMeter: React.FC = () => {
           <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl flex items-start gap-2.5">
             <AlertTriangle className="w-4.5 h-4.5 text-amber-500 shrink-0 mt-0.5" />
             <div className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-400">
-              <span className="font-bold">Strict Budget Alert!</span> You have consumed <span className="font-bold">{percentUsed}%</span> of your safety budget. Remaining budget for the rest of the month is {formatINR(remainingBudget)}. Avoid high tickets!
+              <span className="font-bold">Careful.</span> You have used <span className="font-bold">{percentUsed}%</span> of your budget. You have {formatINR(remainingBudget)} left for this month.
             </div>
           </div>
         )}
@@ -207,7 +207,7 @@ export const BudMeter: React.FC = () => {
           <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/15 border border-emerald-100 dark:border-emerald-900/20 rounded-2xl flex items-start gap-2.5">
             <Check className="w-4.5 h-4.5 text-emerald-500 shrink-0 mt-0.5" />
             <div className="text-[11px] leading-relaxed text-emerald-800 dark:text-emerald-400/80">
-              <span className="font-bold">Healthy Trajectory!</span> Spends are securely in boundaries. You have <span className="font-bold">{formatINR(remainingBudget)}</span> remaining before warning thresholds trigger. Great job!
+              <span className="font-bold">You are doing well.</span> You still have <span className="font-bold">{formatINR(remainingBudget)}</span> left this month. Great job!
             </div>
           </div>
         )}

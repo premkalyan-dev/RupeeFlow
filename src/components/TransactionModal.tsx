@@ -69,17 +69,17 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      setError('Please specify a valid transaction amount greater than ₹0.');
+      setError('Please enter an amount greater than Rs. 0.');
       return;
     }
 
     if (!description.trim()) {
-      setError('Please add a brief description or note.');
+      setError('Please add a short note.');
       return;
     }
 
     if (!date) {
-      setError('Please choose a valid transaction date.');
+      setError('Please choose a date.');
       return;
     }
 
@@ -99,7 +99,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       }
       onClose();
     } catch (err: any) {
-      setError(err?.message || 'Failed to save transaction. Cloud sync might be offline.');
+      setError(err?.message || 'Could not save this record.');
     }
   };
 
@@ -114,7 +114,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       >
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white font-heading">
-            {editTransaction ? 'Edit Transaction Ledger' : 'Add Ledger Entry'}
+            {editTransaction ? 'Edit Record' : 'Add Record'}
           </h3>
           <button
             onClick={onClose}
@@ -131,7 +131,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             </div>
           )}
 
-          {/* Toggle Type (Expense vs Income/Savings) */}
+          {/* Choose spending or saving */}
           <div className="flex p-1 bg-slate-150 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800/60">
             <button
               type="button"
@@ -142,7 +142,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
               }`}
             >
-              Expense Entry
+              Spending
             </button>
             <button
               type="button"
@@ -153,18 +153,18 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
               }`}
             >
-              Savings Addition
+              Saving
             </button>
           </div>
 
           {/* Amount Input */}
           <div>
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-              Amount (₹ INR)
+              Amount (Rs.)
             </label>
             <div className="relative rounded-xl shadow-sm">
               <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400 font-heading font-semibold text-base">
-                ₹
+                Rs.
               </span>
               <input
                 type="number"
@@ -187,7 +187,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               </label>
               {type === 'saving' ? (
                 <div className="w-full px-3.5 py-3 bg-slate-100 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-sm font-semibold select-all">
-                  Savings Base
+                  Savings
                 </div>
               ) : (
                 <select
@@ -222,12 +222,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           {/* Description */}
           <div>
             <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-              Description / Notes
+              Note
             </label>
             <input
               type="text"
               required
-              placeholder="e.g. Swiggy gourmet burger lunch"
+              placeholder="e.g. lunch, petrol, groceries"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-700 text-sm"
@@ -249,7 +249,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               id="save-transaction-btn"
             >
               <Check className="w-4 h-4" />
-              <span>{editTransaction ? 'Save Changes' : 'Record Entry'}</span>
+              <span>{editTransaction ? 'Save Changes' : 'Save Record'}</span>
             </button>
           </div>
         </form>

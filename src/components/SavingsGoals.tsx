@@ -51,27 +51,27 @@ export const SavingsGoals: React.FC = () => {
     const parsedCurrent = parseFloat(currentAmount || '0');
 
     if (!name.trim()) {
-      setError('Please provide a goal name.');
+      setError('Please enter a goal name.');
       return;
     }
 
     if (isNaN(parsedTarget) || parsedTarget <= 0) {
-      setError('Please provide a valid target savings amount greater than ₹0.');
+      setError('Please enter a goal amount greater than Rs. 0.');
       return;
     }
 
     if (isNaN(parsedCurrent) || parsedCurrent < 0) {
-      setError('Current savings amount cannot be negative.');
+      setError('Saved amount cannot be less than 0.');
       return;
     }
 
     if (parsedCurrent > parsedTarget) {
-      setError('Current saved amount cannot exceed the target goal.');
+      setError('Saved amount cannot be more than the goal amount.');
       return;
     }
 
     if (!deadline) {
-      setError('Please select a target deadline.');
+      setError('Please choose a date.');
       return;
     }
 
@@ -92,7 +92,7 @@ export const SavingsGoals: React.FC = () => {
       setIsExpanding(false);
       resetForm();
     } catch (err: any) {
-      setError(err?.message || 'Failed to update savings goal.');
+      setError(err?.message || 'Could not save this goal.');
     }
   };
 
@@ -100,8 +100,8 @@ export const SavingsGoals: React.FC = () => {
     const newCurrent = Math.min(goal.targetAmount, goal.currentAmount + amountToAdd);
     try {
       await updateSavingsGoal(goal.id, { currentAmount: newCurrent });
-    } catch (err) {
-      console.error(err);
+    } catch {
+      return;
     }
   };
 
@@ -116,7 +116,7 @@ export const SavingsGoals: React.FC = () => {
             <span>Savings Goals</span>
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Build wealth systematically. Define, track, and complete savings targets in real-time.
+            Set a goal, add savings, and track your progress.
           </p>
         </div>
         
@@ -130,7 +130,7 @@ export const SavingsGoals: React.FC = () => {
             id="open-add-goal-btn"
           >
             <Plus className="w-4 h-4" />
-            <span>Set New Target</span>
+            <span>Add Goal</span>
           </button>
         )}
       </div>
@@ -146,7 +146,7 @@ export const SavingsGoals: React.FC = () => {
           >
             <div className="flex items-center justify-between pb-4 border-b border-slate-50 dark:border-slate-800 mb-4">
               <h4 className="font-heading font-bold text-sm text-slate-900 dark:text-white">
-                {editingGoal ? 'Revise Savings Target' : 'Create New Savings Target'}
+                {editingGoal ? 'Edit Savings Goal' : 'Create Savings Goal'}
               </h4>
               <button
                 onClick={() => {
@@ -175,7 +175,7 @@ export const SavingsGoals: React.FC = () => {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. New Mac Studio, Goa Adventure"
+                    placeholder="e.g. new phone, trip, emergency fund"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 text-sm font-medium"
@@ -184,7 +184,7 @@ export const SavingsGoals: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                    Bucket/Category
+                    Category
                   </label>
                   <select
                     value={category}
@@ -193,17 +193,17 @@ export const SavingsGoals: React.FC = () => {
                   >
                     <option value="General">General Savings</option>
                     <option value="Gadgets">Gadgets & Tech</option>
-                    <option value="Travel">Travel & Leisure</option>
+                    <option value="Travel">Travel</option>
                     <option value="Vehicles">Car or Bike</option>
                     <option value="Education">Tuitions & Books</option>
-                    <option value="Investment">Mutual Funds / Stocks</option>
-                    <option value="Emergency">Emergency Reserve</option>
+                    <option value="Investment">Investments</option>
+                    <option value="Emergency">Emergency Fund</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                    Target Wealth (₹)
+                    Goal Amount (Rs.)
                   </label>
                   <input
                     type="number"
@@ -217,7 +217,7 @@ export const SavingsGoals: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                    Current Stashed Amount (₹)
+                    Saved So Far (Rs.)
                   </label>
                   <input
                     type="number"
@@ -230,7 +230,7 @@ export const SavingsGoals: React.FC = () => {
 
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                    Deadline Goal Target
+                    Date to Finish
                   </label>
                   <input
                     type="date"
@@ -251,7 +251,7 @@ export const SavingsGoals: React.FC = () => {
                   }}
                   className="px-4 py-2 font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 transition"
                 >
-                  Keep Layout
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -259,7 +259,7 @@ export const SavingsGoals: React.FC = () => {
                   id="save-savings-goal-btn"
                 >
                   <Check className="w-4 h-4" />
-                  <span>{editingGoal ? 'Commit Update' : 'Generate Goal'}</span>
+                  <span>{editingGoal ? 'Save Changes' : 'Save Goal'}</span>
                 </button>
               </div>
             </form>
@@ -272,10 +272,10 @@ export const SavingsGoals: React.FC = () => {
         <div className="p-8 text-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl" id="empty-goals-placeholder">
           <TrendingUp className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
           <h4 className="text-sm font-bold text-slate-900 dark:text-white font-heading">
-            No Savings Target Defined Yet
+            No Savings Goal Yet
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-            Give yourself something to save for. Set a target like a new tech setup, a vehicle payment down, or an emergency pool!
+            Add something you want to save for, like a trip, phone, bike, or emergency fund.
           </p>
         </div>
       ) : (
@@ -336,7 +336,7 @@ export const SavingsGoals: React.FC = () => {
                 <div className="flex items-end justify-between gap-2 mt-2">
                   <div>
                     <div className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">
-                      Saved Progress
+                      Saved
                     </div>
                     <div className="text-base font-bold text-slate-900 dark:text-white font-sans mt-0.5">
                       {formatINR(goal.currentAmount)}{' '}
@@ -370,7 +370,7 @@ export const SavingsGoals: React.FC = () => {
                 <div className="flex items-center justify-between gap-1 mt-4 pt-3.5 border-t border-slate-50 dark:border-slate-800/80">
                   <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-[11px] font-medium leading-none">
                     <Calendar className="w-3.5 h-3.5" />
-                    <span>Target: {formatDate(goal.deadline)}</span>
+                    <span>Finish by: {formatDate(goal.deadline)}</span>
                   </div>
 
                   {/* Quick-add buttons (e.g. +₹100, +₹1,000, +₹5,000, +₹10,000) for fast tracking! */}
@@ -380,13 +380,13 @@ export const SavingsGoals: React.FC = () => {
                         onClick={() => handleQuickAddSavings(goal, 1000)}
                         className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-850 text-slate-600 dark:text-emerald-400 transition"
                       >
-                        +₹1k
+                        +Rs. 1k
                       </button>
                       <button
                         onClick={() => handleQuickAddSavings(goal, 10000)}
                         className="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-850 text-slate-600 dark:text-emerald-400 transition"
                       >
-                        +₹10k
+                        +Rs. 10k
                       </button>
                     </div>
                   )}

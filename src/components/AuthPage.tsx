@@ -7,10 +7,10 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { MainLogo } from './Logo.tsx';
 import { motion } from 'motion/react';
-import { Mail, Lock, LogIn, UserPlus, Info, CheckCircle, Shield } from 'lucide-react';
+import { Mail, Lock, LogIn, UserPlus, Info, CheckCircle } from 'lucide-react';
 
 export const AuthPage: React.FC = () => {
-  const { login, loginWithGoogle, signup, resetPassword, auth } = useApp();
+  const { login, loginWithGoogle, signup, resetPassword } = useApp();
   const [view, setView] = useState<'login' | 'signup' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,19 +39,16 @@ export const AuthPage: React.FC = () => {
         await signup(email, password);
       } else if (view === 'forgot') {
         await resetPassword(email);
-        setSuccessMsg('Reset password link / instructions triggered successfully!');
+        setSuccessMsg('Password reset email sent.');
       }
     } catch (err: any) {
-      console.error(err);
       const isNotAllowed = err?.code === 'auth/operation-not-allowed' || err?.message?.includes('operation-not-allowed');
       if (isNotAllowed) {
         setError(
-          'Email & Password Sign-In is currently disabled in your Firebase backend configuration. ' +
-          'To sign in using email, enable "Email/Password" in your Firebase Console under Authentication > Sign-in method. ' +
-          'Alternatively, please use the "Continue with Google" option below, which is enabled by default!'
+          'Email login is turned off. Please turn it on in Firebase, or use Google login.'
         );
       } else {
-        setError(err?.message || 'Authentication operation failed. Please try again.');
+        setError(err?.message || 'Login failed. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -65,7 +62,6 @@ export const AuthPage: React.FC = () => {
     try {
       await loginWithGoogle();
     } catch (err: any) {
-      console.error(err);
       setError(err?.message || 'Google Sign-In failed. Please try again.');
     } finally {
       setLoadingGoogle(false);
@@ -96,25 +92,6 @@ export const AuthPage: React.FC = () => {
       >
         <div className="bg-white dark:bg-slate-900 py-8 px-6 shadow-2xl rounded-3xl border border-slate-100 dark:border-slate-800/80 sm:px-10">
           
-          {/* Real-time sync connection notification */}
-          <div className="mb-6 -mx-2 p-2.5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/30 flex items-start gap-2.5">
-            {auth.isLocalFallback ? (
-              <>
-                <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                <div className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
-                  <span className="font-semibold">Local Sandbox Mode Enabled.</span> Data is stored privately on your device. Connect Firestore at anytime from settings to automatically sync in the cloud.
-                </div>
-              </>
-            ) : (
-              <>
-                <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                <div className="text-[11px] leading-relaxed text-emerald-800 dark:text-emerald-300">
-                  <span className="font-semibold">Real Cloud Integration Active.</span> All your expense records, savings goals and budgets are secured live in Google Firestore.
-                </div>
-              </>
-            )}
-          </div>
-
           <div className="mb-6 text-center">
             <h2 className="text-2xl font-bold font-heading text-slate-900 dark:text-white">
               {view === 'login' && 'Welcome back'}
@@ -124,7 +101,7 @@ export const AuthPage: React.FC = () => {
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-sans">
               {view === 'login' && 'Track budgets, expenses & savings in seconds.'}
               {view === 'signup' && 'Secure your financial flow on SpendWise India.'}
-              {view === 'forgot' && "Enter your email and we'll send reset instructions."}
+              {view === 'forgot' && "Enter your email and we'll send a reset link."}
             </p>
           </div>
 
@@ -274,7 +251,7 @@ export const AuthPage: React.FC = () => {
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
                   <span className="bg-white dark:bg-slate-900 px-3 text-slate-400 dark:text-slate-500 font-medium">
-                    Or secure with
+                    Or use
                   </span>
                 </div>
               </div>
@@ -296,7 +273,7 @@ export const AuthPage: React.FC = () => {
                       <path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z" fill="#FBBC05"/>
                       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
                     </svg>
-                    <span>Continue with Google</span>
+                    <span>Sign in with Google</span>
                   </>
                 )}
               </button>

@@ -135,8 +135,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else {
         clearUserState(false);
       }
-    } catch (e) {
-      console.error('Error loading local session:', e);
+    } catch {
       clearUserState(false);
     }
   }, []);
@@ -155,7 +154,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const usersList = JSON.parse(usersStr);
     const matched = usersList.find((u: any) => u.email === email && u.password === password);
     if (!matched) {
-      throw new Error('Invalid email or password in local credentials store');
+      throw new Error('Wrong email or password');
     }
     const localUser = { uid: matched.uid, email: matched.email, displayName: matched.displayName };
     localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(localUser));
@@ -172,7 +171,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const usersStr = localStorage.getItem(LOCAL_USERS_KEY) || '[]';
     const usersList = JSON.parse(usersStr);
     if (usersList.some((u: any) => u.email === email)) {
-      throw new Error('User already exists in local database');
+      throw new Error('This user already exists');
     }
     const newUid = 'local_' + Math.random().toString(36).substr(2, 9);
     const newUser = {
@@ -199,8 +198,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const localUser = {
       uid: 'local_google_user',
-      email: 'sandbox@rupeeflow.com',
-      displayName: 'Sandbox User',
+      email: 'user@rupeeflow.com',
+      displayName: 'RupeeFlow User',
     };
     localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(localUser));
     setAuth({ user: localUser, loading: false, isLocalFallback: true });
@@ -217,7 +216,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const usersList = JSON.parse(usersStr);
     const found = usersList.some((u: any) => u.email === email);
     if (!found) {
-      throw new Error('Email not found in local credentials');
+      throw new Error('Email not found');
     }
   };
 

@@ -128,10 +128,10 @@ export const AnalyticsCharts: React.FC = () => {
         <div className="p-10 text-center bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-850 rounded-3xl" id="analytics-empty-state">
           <Activity className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
           <h4 className="font-heading font-bold text-slate-900 dark:text-white">
-            Analytics Awaiting Inputs
+            No Chart Data Yet
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto leading-relaxed">
-            Charts will automatically generate daily expense waves, category pie segment breakdown, savings progress bars, and comparisons as you add ledger entries.
+            Add a few records and your charts will show up here.
           </p>
         </div>
       ) : (
@@ -142,10 +142,10 @@ export const AnalyticsCharts: React.FC = () => {
             <div className="mb-4">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white font-heading flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-indigo-900" />
-                <span>Monthly Expense Trend</span>
+                <span>Daily Spending</span>
               </h4>
               <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                Daily expenditure density for the current session month.
+                Spending for each day this month.
               </p>
             </div>
             
@@ -185,16 +185,16 @@ export const AnalyticsCharts: React.FC = () => {
             <div className="mb-4">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white font-heading flex items-center gap-2">
                 <PieChartIcon className="w-4 h-4 text-emerald-500" />
-                <span>Category Expense Breakdown</span>
+                <span>Spending by Category</span>
               </h4>
               <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                Lakh distributions across custom tags.
+                See where your money is going.
               </p>
             </div>
 
             <div className="h-48 w-full flex items-center justify-center" id="category-expense-piechart">
               {categoryPieData.length === 0 ? (
-                <div className="text-xs text-slate-400">No expense entries found.</div>
+                <div className="text-xs text-slate-400">No spending records found.</div>
               ) : (
                 <div className="w-full h-full flex flex-row items-center">
                   <div className="w-1/2 h-full">
@@ -244,17 +244,17 @@ export const AnalyticsCharts: React.FC = () => {
             <div className="mb-4">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white font-heading flex items-center gap-2">
                 <BarChart2 className="w-4 h-4 text-slate-950 dark:text-white" />
-                <span>Monthly Cash flow Comparison</span>
+                <span>Spending vs Saving</span>
               </h4>
               <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                Compare total monthly expenditures vs savings stashed.
+                Compare how much you spent and saved each month.
               </p>
             </div>
 
             <div className="h-48 w-full" id="cashflow-comparison-chart">
               {sortedMonthsData.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                  Await multiple monthly transactions.
+                  Add records for more than one month to see this chart.
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
@@ -276,17 +276,17 @@ export const AnalyticsCharts: React.FC = () => {
             <div className="mb-4">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white font-heading flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-emerald-500" />
-                <span>Savings Goals Progress</span>
+                <span>Savings Goal Progress</span>
               </h4>
               <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                Track Saved balances against target wealth.
+                Compare saved money with each goal amount.
               </p>
             </div>
 
             <div className="h-48 w-full animate-fade" id="savings-progress-chart">
               {savingsGoalsData.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                  No active savings goals found. Set goal triggers in Savings tab.
+                  No savings goals yet. Add a goal in the Savings tab.
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
