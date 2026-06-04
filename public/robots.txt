@@ -1,5 +1,4 @@
-# https://www.robotstxt.org/robotstxt.html
 User-agent: *
 Allow: /
 
-Sitemap: https://rupeeflow.spendwise.in/sitemap.xml
+Sitemap: https://rupeeflow-tracker.vercel.app/sitemap.xml
