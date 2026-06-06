@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { isFirebaseConfigured, auth as fireAuth } from '../firebase.ts';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { isFirebaseConfigured, auth as fireAuth, db } from '../firebase.ts';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -14,6 +14,14 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
 } from 'firebase/auth';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+} from 'firebase/firestore';
 import { Transaction, SavingsGoal, UserConfig, AuthState } from '../types.ts';
 
 interface AppContextType {
@@ -32,6 +40,7 @@ interface AppContextType {
   
   // App Config & Budget
   updateBudget: (budget: number) => Promise<void>;
+  updateTheme: (theme: 'light' | 'dark') => Promise<void>;
   
   // Transaction CRUD
   addTransaction: (data: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
@@ -46,77 +55,262 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Local Storage Keys
-const LOCAL_USERS_KEY = 'rupeeflow_local_users';
-const LOCAL_ACTIVE_USER_KEY = 'rupeeflow_local_active_user';
-const LOCAL_USER_CONFIGS_KEY = 'rupeeflow_local_user_configs';
-const LOCAL_TRANSACTIONS_PREFIX = 'rupeeflow_local_tx_';
-const LOCAL_GOALS_PREFIX = 'rupeeflow_local_goals_';
-
 type AppUser = NonNullable<AuthState['user']>;
+type UserDocumentData = UserConfig & {
+  transactions?: unknown;
+  savingsGoals?: unknown;
+};
+
+const TRANSACTION_CATEGORIES = [
+  'Food',
+  'Travel',
+  'Shopping',
+  'Rent',
+  'Education',
+  'Health',
+  'Bills',
+  'Entertainment',
+  'Others',
+  'Savings',
+] as const;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object';
+
+const toNumber = (value: unknown) => {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') return Number(value);
+  return NaN;
+};
+
+const toStringValue = (value: unknown) => (typeof value === 'string' ? value : '');
+
+const newDocumentId = () => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `id_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+};
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [auth, setAuth] = useState<AuthState>({
     user: null,
     loading: true,
-    isLocalFallback: true,
+    isLocalFallback: false,
   });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [userConfig, setUserConfig] = useState<UserConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const activeLoadIdRef = useRef(0);
 
-  const loadLocalDataForUser = (localUser: AppUser) => {
-    const configsStr = localStorage.getItem(LOCAL_USER_CONFIGS_KEY) || '{}';
-    const configs = JSON.parse(configsStr);
-    let userConf = configs[localUser.uid];
-
-    if (!userConf) {
-      userConf = {
-        email: localUser.email || '',
-        monthlyBudget: 50000,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      configs[localUser.uid] = userConf;
-      localStorage.setItem(LOCAL_USER_CONFIGS_KEY, JSON.stringify(configs));
+  const requireFirestore = () => {
+    if (!isFirebaseConfigured || !fireAuth || !db) {
+      throw new Error('Firebase is not configured. Please check the Firebase config file.');
     }
-    setUserConfig(userConf);
+    return db;
+  };
 
-    const txsStr = localStorage.getItem(`${LOCAL_TRANSACTIONS_PREFIX}${localUser.uid}`) || '[]';
-    const tList = JSON.parse(txsStr) as Transaction[];
-    tList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setTransactions(tList);
+  const userDocRef = (uid: string) => doc(requireFirestore(), 'users', uid);
+  const transactionsCollectionRef = (uid: string) => collection(requireFirestore(), 'users', uid, 'transactions');
+  const savingsGoalsCollectionRef = (uid: string) => collection(requireFirestore(), 'users', uid, 'savingsGoals');
 
-    const goalsStr = localStorage.getItem(`${LOCAL_GOALS_PREFIX}${localUser.uid}`) || '[]';
-    const gList = JSON.parse(goalsStr) as SavingsGoal[];
-    setSavingsGoals(gList);
-    setLoading(false);
+  const asArray = (value: unknown): Record<string, unknown>[] => {
+    if (!Array.isArray(value)) return [];
+
+    return value.filter(isRecord);
+  };
+
+  const mergeById = <T extends { id: string }>(primary: T[], fallback: T[]) => {
+    const seenIds = new Set(primary.map((item) => item.id));
+    return [...primary, ...fallback.filter((item) => !seenIds.has(item.id))];
+  };
+
+  const normalizeTransaction = (id: string, data: Record<string, unknown>): Transaction | null => {
+    const amount = toNumber(data.amount);
+    const type = data.type === 'expense' || data.type === 'saving' ? data.type : null;
+    const rawCategory = toStringValue(data.category);
+    const category = TRANSACTION_CATEGORIES.includes(rawCategory as Transaction['category'])
+      ? (rawCategory as Transaction['category'])
+      : 'Others';
+    const description = toStringValue(data.description);
+    const date = toStringValue(data.date);
+    const createdAt = toStringValue(data.createdAt);
+    const updatedAt = toStringValue(data.updatedAt);
+
+    if (!id || !Number.isFinite(amount) || !type || !description || !date) {
+      console.warn('[PaiseFlow Firestore] Skipping invalid transaction', { id, data });
+      return null;
+    }
+
+    return {
+      id,
+      amount,
+      type,
+      category,
+      description,
+      date,
+      createdAt,
+      updatedAt,
+    };
+  };
+
+  const normalizeSavingsGoal = (id: string, data: Record<string, unknown>): SavingsGoal | null => {
+    const name = toStringValue(data.name);
+    const targetAmount = toNumber(data.targetAmount);
+    const currentAmount = toNumber(data.currentAmount);
+    const category = toStringValue(data.category);
+    const deadline = toStringValue(data.deadline);
+    const createdAt = toStringValue(data.createdAt);
+    const updatedAt = toStringValue(data.updatedAt);
+
+    if (
+      !id ||
+      !name ||
+      !Number.isFinite(targetAmount) ||
+      !Number.isFinite(currentAmount) ||
+      !category ||
+      !deadline
+    ) {
+      console.warn('[PaiseFlow Firestore] Skipping invalid savings goal', { id, data });
+      return null;
+    }
+
+    return {
+      id,
+      name,
+      targetAmount,
+      currentAmount,
+      category,
+      deadline,
+      createdAt,
+      updatedAt,
+    };
+  };
+
+  const defaultUserConfig = (appUser: AppUser): UserConfig => {
+    const now = new Date().toISOString();
+    return {
+      email: appUser.email || '',
+      monthlyBudget: 50000,
+      theme: 'light',
+      createdAt: now,
+      updatedAt: now,
+    };
+  };
+
+  const loadFirestoreDataForUser = async (appUser: AppUser, loadId: number) => {
+    setLoading(true);
+
+    try {
+      console.log('[PaiseFlow Firestore] Loading user data', {
+        uid: appUser.uid,
+        userDocPath: `users/${appUser.uid}`,
+        transactionsPath: `users/${appUser.uid}/transactions`,
+        savingsGoalsPath: `users/${appUser.uid}/savingsGoals`,
+      });
+
+      const [configSnap, txSnap, goalsSnap] = await Promise.all([
+        getDoc(userDocRef(appUser.uid)),
+        getDocs(transactionsCollectionRef(appUser.uid)),
+        getDocs(savingsGoalsCollectionRef(appUser.uid)),
+      ]);
+
+      let nextConfig: UserConfig;
+      const userDocData = configSnap.exists() ? (configSnap.data() as UserDocumentData) : null;
+      if (configSnap.exists()) {
+        const { transactions: _transactions, savingsGoals: _savingsGoals, ...configData } = userDocData as UserDocumentData;
+        nextConfig = configData as UserConfig;
+      } else {
+        nextConfig = defaultUserConfig(appUser);
+        await setDoc(userDocRef(appUser.uid), nextConfig, { merge: true });
+      }
+
+      const subcollectionTransactions = txSnap.docs
+        .map((snapshot) => normalizeTransaction(snapshot.id, snapshot.data()))
+        .filter((transaction): transaction is Transaction => transaction !== null);
+
+      const embeddedTransactions = asArray(userDocData?.transactions)
+        .map((transaction, index) =>
+          normalizeTransaction(toStringValue(transaction.id) || `embedded_tx_${index}`, transaction)
+        )
+        .filter((transaction): transaction is Transaction => transaction !== null);
+      const nextTransactions = mergeById(subcollectionTransactions, embeddedTransactions);
+      nextTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      const subcollectionSavingsGoals = goalsSnap.docs
+        .map((snapshot) => normalizeSavingsGoal(snapshot.id, snapshot.data()))
+        .filter((goal): goal is SavingsGoal => goal !== null);
+
+      const embeddedSavingsGoals = asArray(userDocData?.savingsGoals)
+        .map((goal, index) => normalizeSavingsGoal(toStringValue(goal.id) || `embedded_goal_${index}`, goal))
+        .filter((goal): goal is SavingsGoal => goal !== null);
+      const nextSavingsGoals = mergeById(subcollectionSavingsGoals, embeddedSavingsGoals);
+
+      console.log('[PaiseFlow Firestore] Loaded user data', {
+        uid: appUser.uid,
+        userDocExists: configSnap.exists(),
+        subcollectionTransactions: subcollectionTransactions.length,
+        embeddedTransactions: embeddedTransactions.length,
+        appliedTransactions: nextTransactions.length,
+        subcollectionSavingsGoals: subcollectionSavingsGoals.length,
+        embeddedSavingsGoals: embeddedSavingsGoals.length,
+        appliedSavingsGoals: nextSavingsGoals.length,
+      });
+
+      if (activeLoadIdRef.current !== loadId) return;
+
+      setUserConfig(nextConfig);
+      setTransactions(nextTransactions);
+      setSavingsGoals(nextSavingsGoals);
+      console.log('State after set:', nextTransactions);
+      console.log('[PaiseFlow Firestore] Applied data to React state', {
+        uid: appUser.uid,
+        transactions: nextTransactions.length,
+        savingsGoals: nextSavingsGoals.length,
+      });
+    } catch (error) {
+      console.error('Could not load Firestore data', error);
+      if (activeLoadIdRef.current !== loadId) return;
+
+      setUserConfig(null);
+      setTransactions([]);
+      setSavingsGoals([]);
+    } finally {
+      if (activeLoadIdRef.current === loadId) {
+        setLoading(false);
+        setAuth((currentAuth) => {
+          if (currentAuth.user?.uid !== appUser.uid) return currentAuth;
+          return { ...currentAuth, loading: false };
+        });
+      }
+    }
   };
 
   const clearUserState = (isLoading = false) => {
-    setAuth({ user: null, loading: isLoading, isLocalFallback: true });
+    activeLoadIdRef.current += 1;
+    setAuth({ user: null, loading: isLoading, isLocalFallback: false });
     setUserConfig(null);
     setTransactions([]);
     setSavingsGoals([]);
     setLoading(isLoading);
   };
 
-  // Firebase Auth is preserved, while budgets, expenses, and savings stay in localStorage.
+  // Auth owns identity; Firestore owns user-scoped app data.
   useEffect(() => {
     if (isFirebaseConfigured && fireAuth) {
       const unsubscribeAuth = onAuthStateChanged(fireAuth, (user) => {
         if (user) {
+          const loadId = activeLoadIdRef.current + 1;
+          activeLoadIdRef.current = loadId;
           const appUser = {
             uid: user.uid,
             email: user.email,
             displayName: user.displayName,
           };
-          localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(appUser));
-          setAuth({ user: appUser, loading: false, isLocalFallback: true });
-          loadLocalDataForUser(appUser);
+          setLoading(true);
+          setAuth({ user: appUser, loading: false, isLocalFallback: false });
         } else {
-          localStorage.removeItem(LOCAL_ACTIVE_USER_KEY);
           clearUserState(false);
         }
       });
@@ -126,19 +320,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    try {
-      const activeUserStr = localStorage.getItem(LOCAL_ACTIVE_USER_KEY);
-      if (activeUserStr) {
-        const localUser = JSON.parse(activeUserStr) as AppUser;
-        setAuth({ user: localUser, loading: false, isLocalFallback: true });
-        loadLocalDataForUser(localUser);
-      } else {
-        clearUserState(false);
-      }
-    } catch {
-      clearUserState(false);
-    }
+    clearUserState(false);
   }, []);
+
+  useEffect(() => {
+    if (!auth.user) return;
+
+    const loadId = activeLoadIdRef.current;
+    void loadFirestoreDataForUser(auth.user, loadId);
+  }, [auth.user?.uid]);
+
+  useEffect(() => {
+    console.log('[PaiseFlow State] transactions changed', {
+      count: transactions.length,
+      transactions,
+    });
+  }, [transactions]);
+
+  useEffect(() => {
+    console.log('[PaiseFlow State] savingsGoals changed', {
+      count: savingsGoals.length,
+      savingsGoals,
+    });
+  }, [savingsGoals]);
 
   // ---------------------------------------------------------
   // Auth Logic (Firebase Auth when configured, local auth otherwise)
@@ -149,17 +353,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await signInWithEmailAndPassword(fireAuth, email, password);
       return;
     }
-
-    const usersStr = localStorage.getItem(LOCAL_USERS_KEY) || '[]';
-    const usersList = JSON.parse(usersStr);
-    const matched = usersList.find((u: any) => u.email === email && u.password === password);
-    if (!matched) {
-      throw new Error('Wrong email or password');
-    }
-    const localUser = { uid: matched.uid, email: matched.email, displayName: matched.displayName };
-    localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(localUser));
-    setAuth({ user: localUser, loading: false, isLocalFallback: true });
-    loadLocalDataForUser(localUser);
+    throw new Error('Firebase authentication is not configured.');
   };
 
   const signup = async (email: string, password: string) => {
@@ -167,26 +361,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await createUserWithEmailAndPassword(fireAuth, email, password);
       return;
     }
-
-    const usersStr = localStorage.getItem(LOCAL_USERS_KEY) || '[]';
-    const usersList = JSON.parse(usersStr);
-    if (usersList.some((u: any) => u.email === email)) {
-      throw new Error('This user already exists');
-    }
-    const newUid = 'local_' + Math.random().toString(36).substr(2, 9);
-    const newUser = {
-      uid: newUid,
-      email,
-      password,
-      displayName: email.split('@')[0],
-    };
-    usersList.push(newUser);
-    localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(usersList));
-
-    const localUser = { uid: newUid, email, displayName: newUser.displayName };
-    localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(localUser));
-    setAuth({ user: localUser, loading: false, isLocalFallback: true });
-    loadLocalDataForUser(localUser);
+    throw new Error('Firebase authentication is not configured.');
   };
 
   const loginWithGoogle = async () => {
@@ -195,15 +370,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await signInWithPopup(fireAuth, provider);
       return;
     }
-
-    const localUser = {
-      uid: 'local_google_user',
-      email: 'user@rupeeflow.com',
-      displayName: 'RupeeFlow User',
-    };
-    localStorage.setItem(LOCAL_ACTIVE_USER_KEY, JSON.stringify(localUser));
-    setAuth({ user: localUser, loading: false, isLocalFallback: true });
-    loadLocalDataForUser(localUser);
+    throw new Error('Firebase authentication is not configured.');
   };
 
   const resetPassword = async (email: string) => {
@@ -211,13 +378,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await sendPasswordResetEmail(fireAuth, email);
       return;
     }
-
-    const usersStr = localStorage.getItem(LOCAL_USERS_KEY) || '[]';
-    const usersList = JSON.parse(usersStr);
-    const found = usersList.some((u: any) => u.email === email);
-    if (!found) {
-      throw new Error('Email not found');
-    }
+    throw new Error('Firebase authentication is not configured.');
   };
 
   const logout = async () => {
@@ -226,7 +387,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    localStorage.removeItem(LOCAL_ACTIVE_USER_KEY);
     clearUserState(false);
   };
 
@@ -236,23 +396,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateBudget = async (budget: number) => {
     if (!auth.user) return;
-    const uid = auth.user.uid;
 
-    const configsStr = localStorage.getItem(LOCAL_USER_CONFIGS_KEY) || '{}';
-    const configs = JSON.parse(configsStr);
-    const existingConfig = configs[uid] || {
-      email: auth.user.email || '',
-      monthlyBudget: 50000,
-      createdAt: new Date().toISOString(),
-    };
-
-    configs[uid] = {
+    const existingConfig = userConfig || defaultUserConfig(auth.user);
+    const nextConfig: UserConfig = {
       ...existingConfig,
       monthlyBudget: budget,
       updatedAt: new Date().toISOString(),
     };
-    localStorage.setItem(LOCAL_USER_CONFIGS_KEY, JSON.stringify(configs));
-    setUserConfig({ ...configs[uid] });
+    await setDoc(userDocRef(auth.user.uid), nextConfig, { merge: true });
+    setUserConfig(nextConfig);
+  };
+
+  const updateTheme = async (theme: 'light' | 'dark') => {
+    if (!auth.user) return;
+
+    const existingConfig = userConfig || defaultUserConfig(auth.user);
+    const nextConfig: UserConfig = {
+      ...existingConfig,
+      theme,
+      updatedAt: new Date().toISOString(),
+    };
+    await setDoc(userDocRef(auth.user.uid), nextConfig, { merge: true });
+    setUserConfig(nextConfig);
   };
 
   // ---------------------------------------------------------
@@ -261,22 +426,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addTransaction = async (data: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!auth.user) return;
-    const uid = auth.user.uid;
     const timestampStr = new Date().toISOString();
-    const txKey = `${LOCAL_TRANSACTIONS_PREFIX}${uid}`;
-    const txsStr = localStorage.getItem(txKey) || '[]';
-    const txs = JSON.parse(txsStr) as Transaction[];
+    const txId = newDocumentId();
+    const txRef = doc(transactionsCollectionRef(auth.user.uid), txId);
     const newTx: Transaction = {
-      id: 'tx_' + Math.random().toString(36).substr(2, 9),
-      ...data,
+      id: txId,
+      amount: data.amount,
+      type: data.type,
+      category: data.category,
+      description: data.description,
+      date: data.date,
       createdAt: timestampStr,
       updatedAt: timestampStr,
     };
-    txs.push(newTx);
-    localStorage.setItem(txKey, JSON.stringify(txs));
+    await setDoc(txRef, newTx);
+    console.log('[PaiseFlow Firestore] Saved transaction', {
+      path: `users/${auth.user.uid}/transactions/${txId}`,
+      transaction: newTx,
+    });
 
-    txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setTransactions([...txs]);
+    setTransactions((currentTransactions) =>
+      [...currentTransactions, newTx].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    );
   };
 
   const updateTransaction = async (
@@ -284,27 +455,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     data: Partial<Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>>
   ) => {
     if (!auth.user) return;
-    const uid = auth.user.uid;
     const timestampStr = new Date().toISOString();
-    const txKey = `${LOCAL_TRANSACTIONS_PREFIX}${uid}`;
-    const txsStr = localStorage.getItem(txKey) || '[]';
-    let txs = JSON.parse(txsStr) as Transaction[];
-    txs = txs.map((tx) => (tx.id === id ? { ...tx, ...data, updatedAt: timestampStr } : tx));
-    localStorage.setItem(txKey, JSON.stringify(txs));
+    const txRef = doc(transactionsCollectionRef(auth.user.uid), id);
+    const updatePayload = {
+      ...data,
+      updatedAt: timestampStr,
+    };
+    await setDoc(txRef, updatePayload, { merge: true });
+    console.log('[PaiseFlow Firestore] Updated transaction', {
+      path: `users/${auth.user.uid}/transactions/${id}`,
+      transaction: updatePayload,
+    });
 
-    txs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setTransactions(txs);
+    setTransactions((currentTransactions) =>
+      currentTransactions
+        .map((tx) => (tx.id === id ? { ...tx, ...data, updatedAt: timestampStr } : tx))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    );
   };
 
   const deleteTransaction = async (id: string) => {
     if (!auth.user) return;
-    const uid = auth.user.uid;
-    const txKey = `${LOCAL_TRANSACTIONS_PREFIX}${uid}`;
-    const txsStr = localStorage.getItem(txKey) || '[]';
-    let txs = JSON.parse(txsStr) as Transaction[];
-    txs = txs.filter((tx) => tx.id !== id);
-    localStorage.setItem(txKey, JSON.stringify(txs));
-    setTransactions(txs);
+    await deleteDoc(doc(transactionsCollectionRef(auth.user.uid), id));
+    console.log('[PaiseFlow Firestore] Deleted transaction', {
+      path: `users/${auth.user.uid}/transactions/${id}`,
+    });
+    setTransactions((currentTransactions) => currentTransactions.filter((tx) => tx.id !== id));
   };
 
   // ---------------------------------------------------------
@@ -312,21 +488,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ---------------------------------------------------------
 
   const addSavingsGoal = async (data: Omit<SavingsGoal, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!auth.user) return;
-    const uid = auth.user.uid;
+    console.log('[PaiseFlow Firestore] addSavingsGoal called', {
+      uid: auth.user?.uid,
+      data,
+    });
+
+    if (!auth.user) {
+      console.warn('[PaiseFlow Firestore] Cannot save savings goal without an authenticated user');
+      return;
+    }
+
     const timestampStr = new Date().toISOString();
-    const goalKey = `${LOCAL_GOALS_PREFIX}${uid}`;
-    const goalsStr = localStorage.getItem(goalKey) || '[]';
-    const goals = JSON.parse(goalsStr) as SavingsGoal[];
+    const goalId = newDocumentId();
+    const goalRef = doc(savingsGoalsCollectionRef(auth.user.uid), goalId);
     const newGoal: SavingsGoal = {
-      id: 'goal_' + Math.random().toString(36).substr(2, 9),
-      ...data,
+      id: goalId,
+      name: data.name,
+      targetAmount: data.targetAmount,
+      currentAmount: data.currentAmount,
+      category: data.category,
+      deadline: data.deadline,
       createdAt: timestampStr,
       updatedAt: timestampStr,
     };
-    goals.push(newGoal);
-    localStorage.setItem(goalKey, JSON.stringify(goals));
-    setSavingsGoals([...goals]);
+    await setDoc(goalRef, newGoal);
+    console.log('[PaiseFlow Firestore] Saved savings goal', {
+      path: `users/${auth.user.uid}/savingsGoals/${goalId}`,
+      savingsGoal: newGoal,
+    });
+    setSavingsGoals((currentGoals) => [...currentGoals, newGoal]);
   };
 
   const updateSavingsGoal = async (
@@ -334,25 +524,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     data: Partial<Omit<SavingsGoal, 'id' | 'createdAt' | 'updatedAt'>>
   ) => {
     if (!auth.user) return;
-    const uid = auth.user.uid;
     const timestampStr = new Date().toISOString();
-    const goalKey = `${LOCAL_GOALS_PREFIX}${uid}`;
-    const goalsStr = localStorage.getItem(goalKey) || '[]';
-    let goals = JSON.parse(goalsStr) as SavingsGoal[];
-    goals = goals.map((g) => (g.id === id ? { ...g, ...data, updatedAt: timestampStr } : g));
-    localStorage.setItem(goalKey, JSON.stringify(goals));
-    setSavingsGoals(goals);
+    const goalRef = doc(savingsGoalsCollectionRef(auth.user.uid), id);
+    const updatePayload = {
+      ...data,
+      updatedAt: timestampStr,
+    };
+    await setDoc(goalRef, updatePayload, { merge: true });
+    console.log('[PaiseFlow Firestore] Updated savings goal', {
+      path: `users/${auth.user.uid}/savingsGoals/${id}`,
+      savingsGoal: updatePayload,
+    });
+
+    setSavingsGoals((currentGoals) =>
+      currentGoals.map((goal) => (goal.id === id ? { ...goal, ...data, updatedAt: timestampStr } : goal))
+    );
   };
 
   const deleteSavingsGoal = async (id: string) => {
     if (!auth.user) return;
-    const uid = auth.user.uid;
-    const goalKey = `${LOCAL_GOALS_PREFIX}${uid}`;
-    const goalsStr = localStorage.getItem(goalKey) || '[]';
-    let goals = JSON.parse(goalsStr) as SavingsGoal[];
-    goals = goals.filter((g) => g.id !== id);
-    localStorage.setItem(goalKey, JSON.stringify(goals));
-    setSavingsGoals(goals);
+    await deleteDoc(doc(savingsGoalsCollectionRef(auth.user.uid), id));
+    console.log('[PaiseFlow Firestore] Deleted savings goal', {
+      path: `users/${auth.user.uid}/savingsGoals/${id}`,
+    });
+    setSavingsGoals((currentGoals) => currentGoals.filter((goal) => goal.id !== id));
   };
 
   return (
@@ -369,6 +564,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetPassword,
         logout,
         updateBudget,
+        updateTheme,
         addTransaction,
         updateTransaction,
         deleteTransaction,

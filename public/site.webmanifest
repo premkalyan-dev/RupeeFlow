@@ -1,7 +1,7 @@
 {
-  "name": "RupeeFlow",
-  "short_name": "RupeeFlow",
-  "description": "Track daily expenses, savings goals, and monthly budgets with RupeeFlow.",
+  "name": "PaiseFlow",
+  "short_name": "PaiseFlow",
+  "description": "Track daily expenses, savings goals, and monthly budgets with PaiseFlow.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -9,12 +9,12 @@
   "theme_color": "#0f172a",
   "icons": [
     {
-      "src": "/android-chrome-192x192.png",
+      "src": "/paiseflow-icon.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/android-chrome-512x512.png",
+      "src": "/paiseflow-icon.png",
       "sizes": "512x512",
       "type": "image/png"
     }

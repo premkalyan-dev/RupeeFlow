@@ -43,6 +43,7 @@ export interface SavingsGoal {
 export interface UserConfig {
   email: string;
   monthlyBudget: number;
+  theme?: 'light' | 'dark';
   createdAt: string;
   updatedAt: string;
 }

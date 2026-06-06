@@ -24,11 +24,45 @@ import {
 } from 'recharts';
 import { PieChartIcon, TrendingUp, BarChart2, Activity, Info } from 'lucide-react';
 
+const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const getDateParts = (date: string) => {
+  const [year, month, day] = date.split('-');
+  if (!year || !month) return null;
+
+  const monthIndex = Number(month) - 1;
+  if (!Number.isFinite(monthIndex) || monthIndex < 0 || monthIndex > 11) return null;
+
+  return {
+    year,
+    month,
+    day: day || '01',
+    monthIndex,
+  };
+};
+
+const getCurrentYearMonth = () => {
+  const now = new Date();
+  return {
+    year: String(now.getFullYear()),
+    month: String(now.getMonth() + 1).padStart(2, '0'),
+  };
+};
+
+const isCurrentMonthDate = (date: string) => {
+  const parsedDate = getDateParts(date);
+  if (!parsedDate) return true;
+
+  const currentDate = getCurrentYearMonth();
+  return parsedDate.year === currentDate.year && parsedDate.month === currentDate.month;
+};
+
 export const AnalyticsCharts: React.FC = () => {
   const { transactions, savingsGoals } = useApp();
 
   // 1. DATA PREPARATION: Category Expense Pie Chart
   const expenseTransactions = transactions.filter((tx) => tx.type === 'expense');
+  console.log('filtered result:', expenseTransactions);
   const categoryTotals: Record<string, number> = {};
   
   expenseTransactions.forEach((tx) => {
@@ -47,14 +81,13 @@ export const AnalyticsCharts: React.FC = () => {
   // 2. DATA PREPARATION: Expense vs Savings Comparison
   // Retrieve last 5 months
   const monthlyComparisonMap: Record<string, { month: string; Expenses: number; Savings: number }> = {};
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   // Fill in active months
   transactions.forEach((tx) => {
-    const d = new Date(tx.date);
-    if (isNaN(d.getTime())) return;
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const formattedMonth = `${monthNames[d.getMonth()]} ${d.getFullYear().toString().substr(2, 2)}`;
+    const dateParts = getDateParts(tx.date);
+    if (!dateParts) return;
+    const key = `${dateParts.year}-${dateParts.month}`;
+    const formattedMonth = `${monthNames[dateParts.monthIndex]} ${dateParts.year.slice(-2)}`;
     
     if (!monthlyComparisonMap[key]) {
       monthlyComparisonMap[key] = { month: formattedMonth, Expenses: 0, Savings: 0 };
@@ -75,19 +108,18 @@ export const AnalyticsCharts: React.FC = () => {
 
   // 3. DATA PREPARATION: Monthly Expense Trend (Current Month Daily Area chart)
   const dailyTrendMap: Record<string, number> = {};
-  const now = new Date();
   
-  transactions
-    .filter((tx) => {
-      if (tx.type !== 'expense') return false;
-      const d = new Date(tx.date);
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-    })
-    .forEach((tx) => {
-      const d = new Date(tx.date);
-      const dayKey = String(d.getDate()).padStart(2, '0');
-      dailyTrendMap[dayKey] = (dailyTrendMap[dayKey] || 0) + tx.amount;
-    });
+  const currentMonthExpenseTransactions = transactions.filter((tx) => {
+    if (tx.type !== 'expense') return false;
+    return isCurrentMonthDate(tx.date);
+  });
+  console.log('filtered result:', currentMonthExpenseTransactions);
+
+  currentMonthExpenseTransactions.forEach((tx) => {
+    const dateParts = getDateParts(tx.date);
+    const dayKey = dateParts?.day || '01';
+    dailyTrendMap[dayKey] = (dailyTrendMap[dayKey] || 0) + tx.amount;
+  });
 
   const dailyTrendData = Object.entries(dailyTrendMap)
     .map(([day, amount]) => ({

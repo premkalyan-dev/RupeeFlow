@@ -1,6 +1,6 @@
 # SpendWise India - Firestore Security Spec
 
-This specification outlines the data invariants and access controls implemented inside `/firestore.rules` for the RupeeFlow application.
+This specification outlines the data invariants and access controls implemented inside `/firestore.rules` for the PaiseFlow application.
 
 ## 1. Core Data Invariants
 

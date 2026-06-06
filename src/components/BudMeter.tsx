@@ -9,6 +9,28 @@ import { formatINR } from '../utils.ts';
 import { Wallet, AlertTriangle, Check, CreditCard, ChevronRight, Edit2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+const getYearMonthFromDate = (date: string) => {
+  const [year, month] = date.split('-');
+  if (!year || !month) return null;
+  return { year, month };
+};
+
+const getCurrentYearMonth = () => {
+  const now = new Date();
+  return {
+    year: String(now.getFullYear()),
+    month: String(now.getMonth() + 1).padStart(2, '0'),
+  };
+};
+
+const isCurrentMonthDate = (date: string) => {
+  const parsedDate = getYearMonthFromDate(date);
+  if (!parsedDate) return true;
+
+  const currentDate = getCurrentYearMonth();
+  return parsedDate.year === currentDate.year && parsedDate.month === currentDate.month;
+};
+
 export const BudMeter: React.FC = () => {
   const { userConfig, updateBudget, transactions } = useApp();
   const [isEditing, setIsEditing] = useState(false);
@@ -22,15 +44,12 @@ export const BudMeter: React.FC = () => {
   }, [userConfig]);
 
   // Compute expenses for current month
-  const currentMonthExpenses = transactions
-    .filter((tx) => {
-      if (tx.type !== 'expense') return false;
-      // Filter for current year and month (avoid using new Date loops during render)
-      const now = new Date();
-      const txDate = new Date(tx.date);
-      return txDate.getFullYear() === now.getFullYear() && txDate.getMonth() === now.getMonth();
-    })
-    .reduce((sum, tx) => sum + tx.amount, 0);
+  const currentMonthExpenseTransactions = transactions.filter((tx) => {
+    if (tx.type !== 'expense') return false;
+    return isCurrentMonthDate(tx.date);
+  });
+  console.log('filtered result:', currentMonthExpenseTransactions);
+  const currentMonthExpenses = currentMonthExpenseTransactions.reduce((sum, tx) => sum + tx.amount, 0);
 
   const budgetLimit = userConfig?.monthlyBudget || 50000;
   const remainingBudget = Math.max(0, budgetLimit - currentMonthExpenses);

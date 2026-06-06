@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://rupeeflow-tracker.vercel.app/sitemap.xml
+Sitemap: https://paiseflow-tracker.vercel.app/sitemap.xml

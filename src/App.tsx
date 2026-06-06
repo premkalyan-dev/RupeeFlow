@@ -11,13 +11,14 @@ import { TransactionModal } from './components/TransactionModal.tsx';
 import { SavingsGoals } from './components/SavingsGoals.tsx';
 import { BudMeter } from './components/BudMeter.tsx';
 import { AnalyticsCharts } from './components/AnalyticsCharts.tsx';
+import { PrivacyPolicy } from './pages/PrivacyPolicy.tsx';
+import { AboutUs } from './pages/AboutUs.tsx';
+import { ContactUs } from './pages/ContactUs.tsx';
 import { getCategoryMeta, formatINR, formatDate, EXPENSE_CATEGORIES } from './utils.ts';
-import { Transaction, TransactionType, TransactionCategory } from './types.ts';
+import { Transaction } from './types.ts';
 import {
   Plus,
   Search,
-  Filter,
-  Calendar,
   ArrowUpRight,
   ArrowDownRight,
   Trash2,
@@ -31,9 +32,223 @@ import {
   ChevronRight,
   TrendingUp,
   Receipt,
-  Download,
   Grid,
+  Menu,
+  X,
+  Info,
+  Mail,
+  Shield,
 } from 'lucide-react';
+
+type PublicRoute = '/' | '/about' | '/contact' | '/privacy-policy';
+
+const getCurrentPath = (): PublicRoute => {
+  const path = window.location.pathname;
+  if (path === '/about' || path === '/contact' || path === '/privacy-policy') return path;
+  return '/';
+};
+
+const navigateTo = (path: PublicRoute) => {
+  window.history.pushState({}, '', path);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+};
+
+const getYearMonthFromDate = (date: string) => {
+  const [year, month] = date.split('-');
+  if (!year || !month) return null;
+  return { year, month };
+};
+
+const getCurrentYearMonth = () => {
+  const now = new Date();
+  return {
+    year: String(now.getFullYear()),
+    month: String(now.getMonth() + 1).padStart(2, '0'),
+  };
+};
+
+const isCurrentMonthDate = (date: string) => {
+  const parsedDate = getYearMonthFromDate(date);
+  if (!parsedDate) return true;
+
+  const currentDate = getCurrentYearMonth();
+  return parsedDate.year === currentDate.year && parsedDate.month === currentDate.month;
+};
+
+interface TransactionTableProps {
+  transactions: Transaction[];
+  emptyMessage: string;
+  onEdit: (tx: Transaction) => void;
+  onDelete: (id: string) => void;
+  emptyId: string;
+  tableId: string;
+}
+
+const TransactionTable: React.FC<TransactionTableProps> = ({
+  transactions,
+  emptyMessage,
+  onEdit,
+  onDelete,
+  emptyId,
+  tableId,
+}) => {
+  if (transactions.length === 0) {
+    return (
+      <div className="py-10 text-center text-xs text-slate-400" id={emptyId}>
+        {emptyMessage}
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto" id={tableId}>
+      <table className="w-full text-left text-xs">
+        <thead>
+          <tr className="border-b border-slate-50 dark:border-slate-850 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+            <th className="py-2.5 px-3">Date</th>
+            <th className="py-2.5 px-3">Category</th>
+            <th className="py-2.5 px-3">Note</th>
+            <th className="py-2.5 px-3">Kind</th>
+            <th className="py-2.5 px-3 text-right">Amount</th>
+            <th className="py-2.5 px-3 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50 dark:divide-slate-850">
+          {transactions.map((tx) => {
+            const meta = getCategoryMeta(tx.category);
+            return (
+              <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition group">
+                <td className="py-3 px-3 font-medium text-slate-550 dark:text-slate-400 whitespace-nowrap">
+                  {formatDate(tx.date)}
+                </td>
+                <td className="py-3 px-3">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold text-semibold ${meta.bgClass} ${meta.textClass}`}>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: meta.color }} />
+                    {meta.name}
+                  </span>
+                </td>
+                <td className="py-3 px-3 font-semibold text-slate-800 dark:text-slate-200 line-clamp-1 max-w-[150px] sm:max-w-[250px] truncate">
+                  {tx.description}
+                </td>
+                <td className="py-3 px-3 whitespace-nowrap">
+                  {tx.type === 'expense' ? (
+                    <span className="text-red-500 dark:text-red-400 font-bold text-[10px] uppercase font-mono tracking-widest">
+                      Spending
+                    </span>
+                  ) : (
+                    <span className="text-emerald-500 dark:text-emerald-400 font-bold text-[10px] uppercase font-mono tracking-widest">
+                      Saving
+                    </span>
+                  )}
+                </td>
+                <td className={`py-3 px-3 text-right font-bold text-sm whitespace-nowrap ${
+                  tx.type === 'expense' ? 'text-red-550' : 'text-emerald-500 dark:text-emerald-400'
+                }`}>
+                  {tx.type === 'expense' ? '-' : '+'}{formatINR(tx.amount)}
+                </td>
+                <td className="py-3 px-3 text-right">
+                  <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition">
+                    <button
+                      onClick={() => onEdit(tx)}
+                      className="p-1 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-850 hover:text-slate-700 dark:hover:text-slate-200 transition touch-manipulation cursor-pointer"
+                      title="Edit Entry"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Delete this record: "${tx.description}"?`)) {
+                          onDelete(tx.id);
+                        }
+                      }}
+                      className="p-1 rounded-md text-slate-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 dark:hover:text-red-400 transition touch-manipulation cursor-pointer"
+                      title="Delete Entry"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+const RecentTransactionsList: React.FC<{
+  onEdit: (tx: Transaction) => void;
+}> = ({ onEdit }) => {
+  const { transactions, deleteTransaction } = useApp();
+  const currentMonthTransactions = transactions.filter((tx) => isCurrentMonthDate(tx.date));
+  console.log('filtered result:', currentMonthTransactions);
+
+  const recentTransactions = (currentMonthTransactions.length > 0 ? currentMonthTransactions : transactions).slice(0, 10);
+  console.log('filtered result:', recentTransactions);
+  console.log('Rendering transactions:', transactions);
+
+  return (
+    <TransactionTable
+      transactions={recentTransactions}
+      emptyMessage="No records stored yet. Click the record button above to log your first spend or saver!"
+      onEdit={onEdit}
+      onDelete={deleteTransaction}
+      emptyId="empty-dashboard-transactions"
+      tableId="dashboard-ledger-table-box"
+    />
+  );
+};
+
+const HistoryTransactionsList: React.FC<{
+  searchQuery: string;
+  categoryFilter: string;
+  typeFilter: 'All' | 'expense' | 'saving';
+  onEdit: (tx: Transaction) => void;
+}> = ({ searchQuery, categoryFilter, typeFilter, onEdit }) => {
+  const { transactions, deleteTransaction } = useApp();
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const validCategoryFilter =
+    categoryFilter === 'All' ||
+    categoryFilter === 'Savings' ||
+    EXPENSE_CATEGORIES.includes(categoryFilter as any)
+      ? categoryFilter
+      : 'All';
+  const validTypeFilter = typeFilter === 'expense' || typeFilter === 'saving' || typeFilter === 'All' ? typeFilter : 'All';
+  const filteredTransactions = transactions.filter((tx) => {
+    const matchesSearch =
+      !normalizedSearch ||
+      String(tx.description || '').toLowerCase().includes(normalizedSearch) ||
+      String(tx.category || '').toLowerCase().includes(normalizedSearch);
+    const isKnownCategory = tx.category === 'Savings' || EXPENSE_CATEGORIES.includes(tx.category as any);
+    const isKnownType = tx.type === 'expense' || tx.type === 'saving';
+    const matchesCategory = validCategoryFilter === 'All' || !isKnownCategory || tx.category === validCategoryFilter;
+    const matchesType = validTypeFilter === 'All' || !isKnownType || tx.type === validTypeFilter;
+    return matchesSearch && matchesCategory && matchesType;
+  });
+  console.log('filtered result:', filteredTransactions);
+
+  console.log('Rendering transactions:', {
+    transactions,
+    filteredTransactions,
+    filters: { searchQuery, categoryFilter: validCategoryFilter, typeFilter: validTypeFilter },
+  });
+
+  return (
+    <TransactionTable
+      transactions={filteredTransactions}
+      emptyMessage={
+        transactions.length === 0
+          ? 'No records stored yet. Click Add New to log your first spend or saving.'
+          : 'No records matching the selected search query or category filters list.'
+      }
+      onEdit={onEdit}
+      onDelete={deleteTransaction}
+      emptyId="filtered-ledger-empty"
+      tableId="full-ledger-table-box"
+    />
+  );
+};
 
 const DashboardContent: React.FC = () => {
   const {
@@ -42,7 +257,7 @@ const DashboardContent: React.FC = () => {
     savingsGoals,
     userConfig,
     logout,
-    deleteTransaction,
+    updateTheme,
   } = useApp();
 
   // Navigation tabs state
@@ -56,40 +271,39 @@ const DashboardContent: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [typeFilter, setTypeFilter] = useState<'All' | 'expense' | 'saving'>('All');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Dark theme control
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    return localStorage.getItem('rupeeflow_theme') === 'dark';
-  });
+  const [isDark, setIsDark] = useState<boolean>(userConfig?.theme === 'dark');
+
+  useEffect(() => {
+    setIsDark(userConfig?.theme === 'dark');
+  }, [userConfig?.theme]);
 
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('rupeeflow_theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('rupeeflow_theme', 'light');
     }
   }, [isDark]);
 
   // Calculations
-  const totalExpenses = transactions
-    .filter((tx) => tx.type === 'expense')
-    .reduce((sum, tx) => sum + tx.amount, 0);
+  const expenseTransactions = transactions.filter((tx) => tx.type === 'expense');
+  console.log('filtered result:', expenseTransactions);
+  const totalExpenses = expenseTransactions.reduce((sum, tx) => sum + tx.amount, 0);
 
-  const totalSavings = transactions
-    .filter((tx) => tx.type === 'saving')
-    .reduce((sum, tx) => sum + tx.amount, 0);
+  const savingTransactions = transactions.filter((tx) => tx.type === 'saving');
+  console.log('filtered result:', savingTransactions);
+  const totalSavings = savingTransactions.reduce((sum, tx) => sum + tx.amount, 0);
 
   // Compute expenses for active month
-  const currentMonthExpenses = transactions
-    .filter((tx) => {
-      if (tx.type !== 'expense') return false;
-      const now = new Date();
-      const txDate = new Date(tx.date);
-      return txDate.getFullYear() === now.getFullYear() && txDate.getMonth() === now.getMonth();
-    })
-    .reduce((sum, tx) => sum + tx.amount, 0);
+  const currentMonthExpenseTransactions = transactions.filter((tx) => {
+    if (tx.type !== 'expense') return false;
+    return isCurrentMonthDate(tx.date);
+  });
+  console.log('filtered result:', currentMonthExpenseTransactions);
+  const currentMonthExpenses = currentMonthExpenseTransactions.reduce((sum, tx) => sum + tx.amount, 0);
 
   const budgetLimit = userConfig?.monthlyBudget || 50000;
   const remainingBudget = Math.max(0, budgetLimit - currentMonthExpenses);
@@ -98,9 +312,6 @@ const DashboardContent: React.FC = () => {
   const totalGoalsTarget = savingsGoals.reduce((sum, g) => sum + g.targetAmount, 0);
   const totalGoalsSaved = savingsGoals.reduce((sum, g) => sum + g.currentAmount, 0);
   const aggregateGoalsPct = totalGoalsTarget > 0 ? Math.round((totalGoalsSaved / totalGoalsTarget) * 100) : 0;
-
-  // Recent transactions mapping (limit to 10 for dashboard)
-  const last10Transactions = transactions.slice(0, 10);
 
   const handleOpenEditTx = (tx: Transaction) => {
     setEditTx(tx);
@@ -112,15 +323,10 @@ const DashboardContent: React.FC = () => {
     setModalOpen(true);
   };
 
-  // Filter list data for Full Ledger History tab
-  const filteredTransactions = transactions.filter((tx) => {
-    const matchesSearch =
-      tx.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === 'All' || tx.category === categoryFilter;
-    const matchesType = typeFilter === 'All' || tx.type === typeFilter;
-    return matchesSearch && matchesCategory && matchesType;
-  });
+  const handlePublicNavigation = (path: PublicRoute) => {
+    setMenuOpen(false);
+    navigateTo(path);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans select-none pb-24 md:pb-6">
@@ -138,11 +344,103 @@ const DashboardContent: React.FC = () => {
           </div>
 
           {/* Action Header controls */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="relative flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setMenuOpen((isOpen) => !isOpen)}
+              className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 transition cursor-pointer flex items-center justify-center touch-manipulation"
+              title="Menu"
+              aria-expanded={menuOpen}
+              aria-label="Open menu"
+            >
+              {menuOpen ? <X className="w-4.5 h-4.5" /> : <Menu className="w-4.5 h-4.5" />}
+            </button>
+
+            {menuOpen && (
+              <div className="absolute right-0 top-12 w-56 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl p-2 z-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('dashboard');
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950 transition"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Dashboard</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('history');
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950 transition"
+                >
+                  <Receipt className="w-4 h-4" />
+                  <span>History</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('goals');
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950 transition"
+                >
+                  <Target className="w-4 h-4" />
+                  <span>Savings Goals</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('analytics');
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950 transition"
+                >
+                  <PieIcon className="w-4 h-4" />
+                  <span>Charts</span>
+                </button>
+
+                <div className="my-2 border-t border-slate-100 dark:border-slate-800" />
+
+                <button
+                  type="button"
+                  onClick={() => handlePublicNavigation('/about')}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950 transition"
+                >
+                  <Info className="w-4 h-4" />
+                  <span>About Us</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePublicNavigation('/contact')}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950 transition"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>Contact Us</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePublicNavigation('/privacy-policy')}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-950 transition"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>Privacy Policy</span>
+                </button>
+              </div>
+            )}
             
             {/* Theme sliding toggle */}
             <button
-              onClick={() => setIsDark((current) => !current)}
+              onClick={() => {
+                const nextTheme = isDark ? 'light' : 'dark';
+                setIsDark(!isDark);
+                updateTheme(nextTheme).catch((error) => {
+                  console.error('Could not save theme', error);
+                  setIsDark(isDark);
+                });
+              }}
               className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 transition cursor-pointer flex items-center justify-center touch-manipulation"
               title="Toggle Theme"
             >
@@ -151,7 +449,7 @@ const DashboardContent: React.FC = () => {
 
             <button
               onClick={() => {
-                if (confirm('Are you sure you want to sign out of RupeeFlow SpendWise?')) {
+                if (confirm('Are you sure you want to sign out of PaiseFlow SpendWise?')) {
                   logout();
                 }
               }}
@@ -407,88 +705,7 @@ const DashboardContent: React.FC = () => {
                 </button>
               </div>
 
-              {last10Transactions.length === 0 ? (
-                <div className="py-10 text-center text-xs text-slate-400" id="empty-dashboard-transactions">
-                  No records stored yet. Click the record button above to log your first spend or saver!
-                </div>
-              ) : (
-                <div className="overflow-x-auto" id="dashboard-ledger-table-box">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-50 dark:border-slate-850 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
-                        <th className="py-2.5 px-3">Date</th>
-                        <th className="py-2.5 px-3">Category</th>
-                        <th className="py-2.5 px-3">Note</th>
-                        <th className="py-2.5 px-3">Kind</th>
-                        <th className="py-2.5 px-3 text-right">Amount</th>
-                        <th className="py-2.5 px-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50 dark:divide-slate-850">
-                      {last10Transactions.map((tx) => {
-                        const meta = getCategoryMeta(tx.category);
-                        return (
-                          <tr
-                            key={tx.id}
-                            className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition group"
-                          >
-                            <td className="py-3 px-3 font-medium text-slate-550 dark:text-slate-400 whitespace-nowrap">
-                              {formatDate(tx.date)}
-                            </td>
-                            <td className="py-3 px-3">
-                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold text-semibold ${meta.bgClass} ${meta.textClass}`}>
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: meta.color }} />
-                                {meta.name}
-                              </span>
-                            </td>
-                            <td className="py-3 px-3 font-semibold text-slate-800 dark:text-slate-200 line-clamp-1 max-w-[150px] sm:max-w-[250px] truncate">
-                              {tx.description}
-                            </td>
-                            <td className="py-3 px-3 whitespace-nowrap">
-                              {tx.type === 'expense' ? (
-                                <span className="text-red-500 dark:text-red-400 font-bold text-[10px] uppercase font-mono tracking-widest">
-                                  Spending
-                                </span>
-                              ) : (
-                                <span className="text-emerald-500 dark:text-emerald-400 font-bold text-[10px] uppercase font-mono tracking-widest">
-                                  Saving
-                                </span>
-                              )}
-                            </td>
-                            <td className={`py-3 px-3 text-right font-bold text-sm whitespace-nowrap ${
-                              tx.type === 'expense' ? 'text-red-550' : 'text-emerald-500 dark:text-emerald-400'
-                            }`}>
-                              {tx.type === 'expense' ? '-' : '+'}{formatINR(tx.amount)}
-                            </td>
-                            <td className="py-3 px-3 text-right">
-                              <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition">
-                                <button
-                                  onClick={() => handleOpenEditTx(tx)}
-                                  className="p-1 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-850 hover:text-slate-700 dark:hover:text-slate-200 transition touch-manipulation cursor-pointer"
-                                  title="Quick Edit"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    if (confirm(`Delete this record: "${tx.description}"?`)) {
-                                      deleteTransaction(tx.id);
-                                    }
-                                  }}
-                                  className="p-1 rounded-md text-slate-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 dark:hover:text-red-400 transition touch-manipulation cursor-pointer"
-                                  title="Quick Delete"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <RecentTransactionsList onEdit={handleOpenEditTx} />
             </div>
 
           </div>
@@ -581,88 +798,12 @@ const DashboardContent: React.FC = () => {
 
             {/* Structured tabular list */}
             <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 shadow-sm" id="full-ledger-table-card">
-              {filteredTransactions.length === 0 ? (
-                <div className="py-14 text-center text-xs text-slate-400" id="filtered-ledger-empty">
-                  No records matching the selected search query or category filters list.
-                </div>
-              ) : (
-                <div className="overflow-x-auto" id="full-ledger-table-box">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-50 dark:border-slate-850 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
-                        <th className="py-2.5 px-3">Date</th>
-                        <th className="py-2.5 px-3">Category</th>
-                        <th className="py-2.5 px-3">Note</th>
-                        <th className="py-2.5 px-3">Kind</th>
-                        <th className="py-2.5 px-3 text-right">Amount</th>
-                        <th className="py-2.5 px-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50 dark:divide-slate-850">
-                      {filteredTransactions.map((tx) => {
-                        const meta = getCategoryMeta(tx.category);
-                        return (
-                          <tr
-                            key={tx.id}
-                            className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition group"
-                          >
-                            <td className="py-3 px-3 font-medium text-slate-550 dark:text-slate-400 whitespace-nowrap">
-                              {formatDate(tx.date)}
-                            </td>
-                            <td className="py-3 px-3">
-                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold text-semibold ${meta.bgClass} ${meta.textClass}`}>
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: meta.color }} />
-                                {meta.name}
-                              </span>
-                            </td>
-                            <td className="py-3 px-3 font-semibold text-slate-800 dark:text-slate-200 line-clamp-1 max-w-[200px] truncate">
-                              {tx.description}
-                            </td>
-                            <td className="py-3 px-3">
-                              {tx.type === 'expense' ? (
-                                <span className="text-red-500 dark:text-red-400 font-bold text-[10px] uppercase font-mono tracking-widest">
-                                  Spending
-                                </span>
-                              ) : (
-                                <span className="text-emerald-500 dark:text-emerald-400 font-bold text-[10px] uppercase font-mono tracking-widest">
-                                  Saving
-                                </span>
-                              )}
-                            </td>
-                            <td className={`py-3 px-3 text-right font-bold text-sm whitespace-nowrap ${
-                              tx.type === 'expense' ? 'text-red-550' : 'text-emerald-500 dark:text-emerald-400'
-                            }`}>
-                              {tx.type === 'expense' ? '-' : '+'}{formatINR(tx.amount)}
-                            </td>
-                            <td className="py-3 px-3 text-right">
-                              <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 transition">
-                                <button
-                                  onClick={() => handleOpenEditTx(tx)}
-                                  className="p-1 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-850 hover:text-slate-700 dark:hover:text-slate-200 transition touch-manipulation cursor-pointer"
-                                  title="Edit Entry"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    if (confirm(`Delete this record: "${tx.description}"?`)) {
-                                      deleteTransaction(tx.id);
-                                    }
-                                  }}
-                                  className="p-1 rounded-md text-slate-400 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-650 dark:hover:text-red-400 transition touch-manipulation cursor-pointer"
-                                  title="Delete Entry"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <HistoryTransactionsList
+                searchQuery={searchQuery}
+                categoryFilter={categoryFilter}
+                typeFilter={typeFilter}
+                onEdit={handleOpenEditTx}
+              />
             </div>
           </div>
         )}
@@ -763,6 +904,30 @@ const DashboardContent: React.FC = () => {
 
 function AppConsumer() {
   const { auth, loading } = useApp();
+  const [currentPath, setCurrentPath] = useState<PublicRoute>(getCurrentPath);
+
+  useEffect(() => {
+    const handleRouteChange = () => {
+      setCurrentPath(getCurrentPath());
+    };
+
+    window.addEventListener('popstate', handleRouteChange);
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+    };
+  }, []);
+
+  if (currentPath === '/privacy-policy') {
+    return <PrivacyPolicy />;
+  }
+
+  if (currentPath === '/about') {
+    return <AboutUs />;
+  }
+
+  if (currentPath === '/contact') {
+    return <ContactUs />;
+  }
 
   // If initial load in progress
   if (loading) {
