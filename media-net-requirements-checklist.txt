@@ -1,0 +1,83 @@
+Media.net Ads Approval Checklist
+Website: [YOUR WEBSITE URL]
+Niche: [YOUR NICHE]
+Monthly Traffic: [YOUR TRAFFIC NUMBER]
+Primary Audience Country: [YOUR AUDIENCE COUNTRY]
+
+Overall Status:
+Not ready to apply yet. Some important details are still unknown, especially custom domain, traffic, audience country, and live HTTPS URL.
+
+1. Language
+Status: Satisfied
+Your website content appears to be primarily in English.
+
+2. Content Quality
+Status: Partially satisfied
+The site has original app-related pages such as About Us, Privacy Policy, and Contact Us. To improve approval chances, add more useful original content such as finance guides, budgeting tips, savings articles, or personal finance resources.
+
+3. Traffic Source
+Status: Unknown
+Media.net prefers traffic from the USA, UK, or Canada. You need to verify this using analytics data such as Google Analytics, Search Console, or hosting analytics.
+
+4. Minimum Traffic
+Status: Unknown / Needs proof
+Monthly traffic is not provided. Low or very new traffic may lead to rejection. Add your current monthly visits before applying.
+
+5. Niche
+Status: Satisfied
+The website is in the personal finance / budgeting niche, which is generally supported.
+
+6. Domain
+Status: Unknown / Needs confirmation
+Media.net usually expects a proper custom domain. Avoid free subdomains such as blogspot.com or wordpress.com. Confirm that the live site uses a custom domain.
+
+7. Privacy Policy Page
+Status: Satisfied
+The website has a Privacy Policy page.
+
+8. About Us Page
+Status: Satisfied
+The website has an About Us page.
+
+9. Contact Us Page
+Status: Satisfied
+The website has a Contact Us page with an email address.
+
+10. No Prohibited Content
+Status: Satisfied
+No adult content, gambling, piracy, hate speech, or illegal content was found in the app pages.
+
+11. Website Navigation
+Status: Satisfied
+The site has navigation links for About Us, Contact Us, and Privacy Policy, and the layout appears professional.
+
+12. No Other Conflicting Ads
+Status: Likely satisfied
+No excessive existing ads were visible in the current code. Keep the site clean before applying.
+
+13. SSL Certificate
+Status: Unknown / Needs confirmation
+The live website must use HTTPS. Confirm that the final URL starts with https:// and loads without browser security warnings.
+
+14. Mobile Friendly
+Status: Satisfied
+The website uses responsive styling and should work on mobile screens.
+
+15. No Excessive Popups
+Status: Satisfied
+No aggressive popup ads were found.
+
+Fix Before Applying:
+1. Replace [YOUR WEBSITE URL] with the final live HTTPS custom domain.
+2. Replace [YOUR NICHE] with Personal Finance / Budgeting / Expense Tracking.
+3. Add your real monthly traffic number.
+4. Confirm that most traffic comes from USA, UK, or Canada.
+5. Add more original finance content if the site currently has only app pages.
+6. Make sure the site is live on HTTPS.
+7. Keep ads and popups minimal before review.
+
+Recommended Application Details:
+Website URL: https://your-custom-domain.com
+Niche: Personal Finance, Budgeting, Expense Tracking
+Audience: USA / UK / Canada if analytics supports it
+Content Type: Personal finance tracker, budgeting tools, savings goal management, money management resources
