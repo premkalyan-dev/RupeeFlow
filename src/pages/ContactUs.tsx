@@ -57,69 +57,6 @@ export const ContactUs: React.FC = () => {
         </div>
       </LegalSection>
 
-      <LegalSection title="Send a Message">
-        <form className="space-y-4">
-          <div>
-            <label htmlFor="contact-name" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-              Full Name
-            </label>
-            <input
-              id="contact-name"
-              type="text"
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 text-sm font-medium"
-              placeholder="Your full name"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="contact-email" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-              Email Address
-            </label>
-            <input
-              id="contact-email"
-              type="email"
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 text-sm font-medium"
-              placeholder="name@example.com"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="contact-subject" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-              Subject
-            </label>
-            <input
-              id="contact-subject"
-              type="text"
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 text-sm font-medium"
-              placeholder="How can we help?"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="contact-message" className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-              Message
-            </label>
-            <textarea
-              id="contact-message"
-              rows={5}
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 text-sm font-medium resize-none"
-              placeholder="Write your message"
-            />
-          </div>
-
-          <button
-            type="button"
-            className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-indigo-900 hover:bg-indigo-950 dark:bg-emerald-600 dark:hover:bg-emerald-500 shadow-md transition cursor-pointer"
-          >
-            Send Message
-          </button>
-
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            This contact form is for user interface purposes only and does not send messages yet.
-          </p>
-        </form>
-      </LegalSection>
-
       <LegalSection title="Frequently Asked Questions">
         <div className="space-y-3">
           {faqs.map((faq) => (
