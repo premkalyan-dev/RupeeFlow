@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { formatINR } from '../utils.ts';
-import { Wallet, AlertTriangle, Check, CreditCard, ChevronRight, Edit2 } from 'lucide-react';
+import { Wallet, AlertTriangle, Check, Edit2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const getYearMonthFromDate = (date: string) => {
@@ -44,12 +44,14 @@ export const BudMeter: React.FC = () => {
   }, [userConfig]);
 
   // Compute expenses for current month
-  const currentMonthExpenseTransactions = transactions.filter((tx) => {
-    if (tx.type !== 'expense') return false;
-    return isCurrentMonthDate(tx.date);
-  });
-  console.log('filtered result:', currentMonthExpenseTransactions);
-  const currentMonthExpenses = currentMonthExpenseTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+  const currentMonthExpenses = useMemo(
+    () =>
+      transactions.reduce((sum, tx) => {
+        if (tx.type !== 'expense' || !isCurrentMonthDate(tx.date)) return sum;
+        return sum + tx.amount;
+      }, 0),
+    [transactions]
+  );
 
   const budgetLimit = userConfig?.monthlyBudget || 50000;
   const remainingBudget = Math.max(0, budgetLimit - currentMonthExpenses);
@@ -76,7 +78,7 @@ export const BudMeter: React.FC = () => {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 shadow-sm font-sans select-none" id="budget-meter-panel">
+    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[20px] p-5 shadow-[0_14px_34px_-24px_rgba(15,23,42,0.45)] dark:shadow-[0_18px_44px_-26px_rgba(0,0,0,0.85)] hover:-translate-y-0.5 hover:shadow-[0_18px_42px_-24px_rgba(15,23,42,0.5)] dark:hover:shadow-[0_22px_52px_-28px_rgba(0,0,0,0.95)] transition-all duration-[250ms] ease-out font-sans select-none" id="budget-meter-panel">
       <div className="flex items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-2">
           <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-900 dark:text-emerald-400">
@@ -97,6 +99,7 @@ export const BudMeter: React.FC = () => {
             onClick={() => setIsEditing(true)}
             className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-indigo-900 dark:hover:text-emerald-400 transition cursor-pointer flex items-center justify-center"
             title="Edit Budget"
+            aria-label="Edit budget"
             id="edit-budget-trigger-btn"
           >
             <Edit2 className="w-4 h-4" />

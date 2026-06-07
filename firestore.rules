@@ -20,14 +20,50 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    function hasOnlyAllowedFields(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
+    }
+
+    function isValidDateString(value) {
+      return value is string && value.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isValidTimestampString(value) {
+      return value is string && value.size() <= 40;
+    }
+
+    function isValidTransactionCategory(category) {
+      return category in [
+        'Food',
+        'Travel',
+        'Shopping',
+        'Rent',
+        'Education',
+        'Health',
+        'Bills',
+        'Entertainment',
+        'Others',
+        'Savings'
+      ];
+    }
+
+    function isValidGoalCategory(category) {
+      return category is string && category.size() > 0 && category.size() <= 50;
+    }
+
     // 1. Users collection matching path
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow create, update: if isOwner(userId) 
+        && hasOnlyAllowedFields(['email', 'monthlyBudget', 'theme', 'createdAt', 'updatedAt'])
         && request.resource.data.email is string
         && request.resource.data.email.size() <= 200
         && request.resource.data.monthlyBudget is number
-        && request.resource.data.monthlyBudget > 0;
+        && request.resource.data.monthlyBudget > 0
+        && request.resource.data.monthlyBudget < 100000000
+        && (!('theme' in request.resource.data) || request.resource.data.theme in ['light', 'dark', 'gold'])
+        && (!('createdAt' in request.resource.data) || isValidTimestampString(request.resource.data.createdAt))
+        && (!('updatedAt' in request.resource.data) || isValidTimestampString(request.resource.data.updatedAt));
       allow delete: if false; // Prevent user state purging
     }
 
@@ -35,16 +71,22 @@ service cloud.firestore {
     match /users/{userId}/transactions/{transactionId} {
       allow read: if isOwner(userId);
       allow create, update: if isOwner(userId)
+        && isValidId(transactionId)
+        && hasOnlyAllowedFields(['id', 'amount', 'type', 'category', 'description', 'date', 'createdAt', 'updatedAt'])
+        && request.resource.data.id == transactionId
         && request.resource.data.amount is number
         && request.resource.data.amount > 0
-        && request.resource.data.type is string
-        && (request.resource.data.type == 'expense' || request.resource.data.type == 'saving')
-        && request.resource.data.category is string
-        && request.resource.data.category.size() <= 50
+        && request.resource.data.amount < 100000000
+        && request.resource.data.type in ['expense', 'saving']
+        && isValidTransactionCategory(request.resource.data.category)
+        && (request.resource.data.type == 'saving' || request.resource.data.category != 'Savings')
+        && (request.resource.data.type == 'expense' || request.resource.data.category == 'Savings')
         && request.resource.data.description is string
+        && request.resource.data.description.size() > 0
         && request.resource.data.description.size() <= 500
-        && request.resource.data.date is string
-        && request.resource.data.date.size() <= 20;
+        && isValidDateString(request.resource.data.date)
+        && (!('createdAt' in request.resource.data) || isValidTimestampString(request.resource.data.createdAt))
+        && (!('updatedAt' in request.resource.data) || isValidTimestampString(request.resource.data.updatedAt));
       allow delete: if isOwner(userId);
     }
 
@@ -52,17 +94,42 @@ service cloud.firestore {
     match /users/{userId}/savingsGoals/{goalId} {
       allow read: if isOwner(userId);
       allow create, update: if isOwner(userId)
+        && isValidId(goalId)
+        && hasOnlyAllowedFields(['id', 'name', 'targetAmount', 'currentAmount', 'category', 'deadline', 'createdAt', 'updatedAt'])
+        && request.resource.data.id == goalId
         && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 150
         && request.resource.data.targetAmount is number
         && request.resource.data.targetAmount > 0
+        && request.resource.data.targetAmount < 100000000
         && request.resource.data.currentAmount is number
         && request.resource.data.currentAmount >= 0
-        && request.resource.data.category is string
-        && request.resource.data.category.size() <= 50
-        && request.resource.data.deadline is string
-        && request.resource.data.deadline.size() <= 20;
+        && request.resource.data.currentAmount <= request.resource.data.targetAmount
+        && isValidGoalCategory(request.resource.data.category)
+        && isValidDateString(request.resource.data.deadline)
+        && (!('createdAt' in request.resource.data) || isValidTimestampString(request.resource.data.createdAt))
+        && (!('updatedAt' in request.resource.data) || isValidTimestampString(request.resource.data.updatedAt));
       allow delete: if isOwner(userId);
+    }
+
+    // 4. Monthly aggregate summaries for scalable dashboard totals
+    match /users/{userId}/monthlySummaries/{summaryId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && summaryId.matches('^\\d{4}-\\d{2}$')
+        && hasOnlyAllowedFields(['expenseTotal', 'savingTotal', 'transactionCount', 'updatedAt'])
+        && request.resource.data.expenseTotal is number
+        && request.resource.data.expenseTotal >= 0
+        && request.resource.data.expenseTotal < 1000000000
+        && request.resource.data.savingTotal is number
+        && request.resource.data.savingTotal >= 0
+        && request.resource.data.savingTotal < 1000000000
+        && request.resource.data.transactionCount is number
+        && request.resource.data.transactionCount >= 0
+        && request.resource.data.transactionCount < 1000000
+        && isValidTimestampString(request.resource.data.updatedAt);
+      allow delete: if false;
     }
   }
 }

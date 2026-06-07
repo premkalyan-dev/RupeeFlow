@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+@custom-variant gold (&:where(.gold, .gold *));
 
 @theme {
   --font-sans: "Inter", "SF Pro Display", -apple-system, sans-serif;
@@ -9,6 +10,95 @@
   
   --color-primary: #1e3a8a; /* Deep Blue bg-blue-900 */
   --color-accent: #10b981;  /* Emerald Green bg-emerald-500 */
+}
+
+:root.gold {
+  color-scheme: dark;
+}
+
+.gold body {
+  background: #0B1120;
+  color: #F8FAFC;
+}
+
+@layer utilities {
+  .gold .min-h-screen.bg-slate-50 {
+    background-color: #0B1120 !important;
+  }
+
+  .gold .bg-slate-50,
+  .gold .bg-slate-100,
+  .gold .bg-white {
+    background-color: #111827 !important;
+  }
+
+  .gold .dark\:bg-slate-900,
+  .gold .dark\:bg-slate-950,
+  .gold .dark\:bg-slate-850,
+  .gold .dark\:bg-slate-800 {
+    background-color: #111827 !important;
+  }
+
+  .gold .text-slate-900,
+  .gold .text-slate-950,
+  .gold .text-slate-800,
+  .gold .dark\:text-white {
+    color: #F8FAFC !important;
+  }
+
+  .gold .text-indigo-900,
+  .gold .text-indigo-950,
+  .gold .dark\:text-emerald-400,
+  .gold .text-emerald-500,
+  .gold .text-emerald-600 {
+    color: #D4AF37 !important;
+  }
+
+  .gold .border-slate-100,
+  .gold .border-slate-200,
+  .gold .dark\:border-slate-800,
+  .gold .dark\:border-slate-850 {
+    border-color: rgba(212, 175, 55, 0.26) !important;
+  }
+
+  .gold .bg-indigo-900,
+  .gold .bg-blue-600,
+  .gold .dark\:bg-emerald-600,
+  .gold .bg-emerald-500,
+  .gold .bg-emerald-600 {
+    background-color: #D4AF37 !important;
+    color: #0B1120 !important;
+  }
+
+  .gold .hover\:bg-indigo-950:hover,
+  .gold .hover\:bg-blue-700:hover,
+  .gold .dark\:hover\:bg-emerald-500:hover,
+  .gold .hover\:bg-emerald-400:hover {
+    background-color: #F4D03F !important;
+    color: #0B1120 !important;
+  }
+
+  .gold .from-indigo-950,
+  .gold .dark\:from-slate-900 {
+    --tw-gradient-from: #111827 var(--tw-gradient-from-position) !important;
+    --tw-gradient-to: rgb(17 24 39 / 0) var(--tw-gradient-to-position) !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+  }
+
+  .gold .to-indigo-900,
+  .gold .dark\:to-slate-850 {
+    --tw-gradient-to: #1F2937 var(--tw-gradient-to-position) !important;
+  }
+
+  .gold .from-indigo-700 {
+    --tw-gradient-from: #D4AF37 var(--tw-gradient-from-position) !important;
+  }
+
+  .gold .to-emerald-500,
+  .gold .to-green-400,
+  .gold .to-amber-400 {
+    --tw-gradient-to: #F4D03F var(--tw-gradient-to-position) !important;
+  }
 }
 
 /* Custom scrollbar and ambient animation settings */
@@ -26,5 +116,15 @@
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background: rgba(156, 163, 175, 0.6);
+  }
+
+  .ad-reserved-slot {
+    contain: layout paint;
+    flex: 0 0 auto;
+    position: relative;
+  }
+
+  .ad-reserved-slot iframe {
+    display: block;
   }
 }

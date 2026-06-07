@@ -1,0 +1,83 @@
+{
+  "rewrites": [
+    {
+      "source": "/about",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/contact",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/privacy-policy",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/tools",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/emi-calculator",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/sip-calculator",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/savings-goal-calculator",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/fd-calculator",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/rd-calculator",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/budget-planner",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!assets/|favicon|robots\\.txt|sitemap\\.xml|ads\\.txt|site\\.webmanifest|.*\\.(?:png|jpg|jpeg|svg|ico|webp|txt|xml|json)$).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://www.highperformanceformat.com https://pl29657412.effectivecpmnetwork.com https://*.effectivecpmnetwork.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://api.resend.com https://www.google-analytics.com https://www.highperformanceformat.com https://pl29657412.effectivecpmnetwork.com https://*.effectivecpmnetwork.com; frame-src 'self' https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com https://www.highperformanceformat.com https://*.effectivecpmnetwork.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; upgrade-insecure-requests"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    }
+  ]
+}

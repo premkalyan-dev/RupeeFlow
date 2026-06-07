@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { getCategoryMeta, formatINR } from '../utils.ts';
 import {
@@ -19,10 +19,8 @@ import {
   YAxis,
   Tooltip,
   Legend,
-  LineChart,
-  Line,
 } from 'recharts';
-import { PieChartIcon, TrendingUp, BarChart2, Activity, Info } from 'lucide-react';
+import { PieChartIcon, TrendingUp, BarChart2, Activity } from 'lucide-react';
 
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -61,79 +59,82 @@ export const AnalyticsCharts: React.FC = () => {
   const { transactions, savingsGoals } = useApp();
 
   // 1. DATA PREPARATION: Category Expense Pie Chart
-  const expenseTransactions = transactions.filter((tx) => tx.type === 'expense');
-  console.log('filtered result:', expenseTransactions);
-  const categoryTotals: Record<string, number> = {};
-  
-  expenseTransactions.forEach((tx) => {
-    categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
-  });
+  const categoryPieData = useMemo(() => {
+    const categoryTotals: Record<string, number> = {};
 
-  const categoryPieData = Object.entries(categoryTotals).map(([name, value]) => {
-    const meta = getCategoryMeta(name as any);
-    return {
-      name,
-      value,
-      color: meta.color,
-    };
-  });
+    transactions.forEach((tx) => {
+      if (tx.type === 'expense') {
+        categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
+      }
+    });
+
+    return Object.entries(categoryTotals).map(([name, value]) => {
+      const meta = getCategoryMeta(name as any);
+      return {
+        name,
+        value,
+        color: meta.color,
+      };
+    });
+  }, [transactions]);
 
   // 2. DATA PREPARATION: Expense vs Savings Comparison
   // Retrieve last 5 months
-  const monthlyComparisonMap: Record<string, { month: string; Expenses: number; Savings: number }> = {};
+  const sortedMonthsData = useMemo(() => {
+    const monthlyComparisonMap: Record<string, { month: string; Expenses: number; Savings: number }> = {};
 
-  // Fill in active months
-  transactions.forEach((tx) => {
-    const dateParts = getDateParts(tx.date);
-    if (!dateParts) return;
-    const key = `${dateParts.year}-${dateParts.month}`;
-    const formattedMonth = `${monthNames[dateParts.monthIndex]} ${dateParts.year.slice(-2)}`;
-    
-    if (!monthlyComparisonMap[key]) {
-      monthlyComparisonMap[key] = { month: formattedMonth, Expenses: 0, Savings: 0 };
-    }
-    
-    if (tx.type === 'expense') {
-      monthlyComparisonMap[key].Expenses += tx.amount;
-    } else if (tx.type === 'saving') {
-      monthlyComparisonMap[key].Savings += tx.amount;
-    }
-  });
+    transactions.forEach((tx) => {
+      const dateParts = getDateParts(tx.date);
+      if (!dateParts) return;
+      const key = `${dateParts.year}-${dateParts.month}`;
+      const formattedMonth = `${monthNames[dateParts.monthIndex]} ${dateParts.year.slice(-2)}`;
 
-  // Sort months chronologically
-  const sortedMonthsData = Object.entries(monthlyComparisonMap)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([_, val]) => val)
-    .slice(-5); // Get last 5 months
+      if (!monthlyComparisonMap[key]) {
+        monthlyComparisonMap[key] = { month: formattedMonth, Expenses: 0, Savings: 0 };
+      }
+
+      if (tx.type === 'expense') {
+        monthlyComparisonMap[key].Expenses += tx.amount;
+      } else if (tx.type === 'saving') {
+        monthlyComparisonMap[key].Savings += tx.amount;
+      }
+    });
+
+    return Object.entries(monthlyComparisonMap)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([_, val]) => val)
+      .slice(-5);
+  }, [transactions]);
 
   // 3. DATA PREPARATION: Monthly Expense Trend (Current Month Daily Area chart)
-  const dailyTrendMap: Record<string, number> = {};
-  
-  const currentMonthExpenseTransactions = transactions.filter((tx) => {
-    if (tx.type !== 'expense') return false;
-    return isCurrentMonthDate(tx.date);
-  });
-  console.log('filtered result:', currentMonthExpenseTransactions);
+  const dailyTrendData = useMemo(() => {
+    const dailyTrendMap: Record<string, number> = {};
 
-  currentMonthExpenseTransactions.forEach((tx) => {
-    const dateParts = getDateParts(tx.date);
-    const dayKey = dateParts?.day || '01';
-    dailyTrendMap[dayKey] = (dailyTrendMap[dayKey] || 0) + tx.amount;
-  });
+    transactions.forEach((tx) => {
+      if (tx.type !== 'expense' || !isCurrentMonthDate(tx.date)) return;
+      const dateParts = getDateParts(tx.date);
+      const dayKey = dateParts?.day || '01';
+      dailyTrendMap[dayKey] = (dailyTrendMap[dayKey] || 0) + tx.amount;
+    });
 
-  const dailyTrendData = Object.entries(dailyTrendMap)
-    .map(([day, amount]) => ({
-      day: `Day ${day}`,
-      Expenses: amount,
-    }))
-    .sort((a, b) => a.day.localeCompare(b.day));
+    return Object.entries(dailyTrendMap)
+      .map(([day, amount]) => ({
+        day: `Day ${day}`,
+        Expenses: amount,
+      }))
+      .sort((a, b) => a.day.localeCompare(b.day));
+  }, [transactions]);
 
   // 4. DATA PREPARATION: Savings Progress towards Goals
-  const savingsGoalsData = savingsGoals.map((g) => ({
-    name: g.name.length > 10 ? g.name.substring(0, 10) + '..' : g.name,
-    Saved: g.currentAmount,
-    Target: g.targetAmount,
-  }));
+  const savingsGoalsData = useMemo(
+    () =>
+      savingsGoals.map((g) => ({
+        name: g.name.length > 10 ? g.name.substring(0, 10) + '..' : g.name,
+        Saved: g.currentAmount,
+        Target: g.targetAmount,
+      })),
+    [savingsGoals]
+  );
 
   // Render Tooltip Formatting
   const renderTooltipContent = ({ active, payload, label }: any) => {

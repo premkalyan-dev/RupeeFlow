@@ -17,17 +17,30 @@ import {
 import {
   collection,
   deleteDoc,
+  DocumentData,
   doc,
   getDoc,
   getDocs,
+  increment,
+  limit,
+  orderBy,
+  query,
+  QueryDocumentSnapshot,
   setDoc,
+  startAfter,
+  writeBatch,
 } from 'firebase/firestore';
-import { Transaction, SavingsGoal, UserConfig, AuthState } from '../types.ts';
+import { Transaction, SavingsGoal, UserConfig, AuthState, MonthlySummary } from '../types.ts';
+
+type AppTheme = NonNullable<UserConfig['theme']>;
 
 interface AppContextType {
   auth: AuthState;
   transactions: Transaction[];
   savingsGoals: SavingsGoal[];
+  monthlySummary: MonthlySummary | null;
+  hasMoreTransactions: boolean;
+  loadingMoreTransactions: boolean;
   userConfig: UserConfig | null;
   loading: boolean;
   
@@ -40,12 +53,13 @@ interface AppContextType {
   
   // App Config & Budget
   updateBudget: (budget: number) => Promise<void>;
-  updateTheme: (theme: 'light' | 'dark') => Promise<void>;
+  updateTheme: (theme: AppTheme) => Promise<void>;
   
   // Transaction CRUD
   addTransaction: (data: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateTransaction: (id: string, data: Partial<Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
+  loadMoreTransactions: () => Promise<void>;
   
   // Savings Goals CRUD
   addSavingsGoal: (data: Omit<SavingsGoal, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
@@ -56,6 +70,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 type AppUser = NonNullable<AuthState['user']>;
+const THEME_STORAGE_KEY = 'paiseflow-theme';
+
 type UserDocumentData = UserConfig & {
   transactions?: unknown;
   savingsGoals?: unknown;
@@ -73,6 +89,8 @@ const TRANSACTION_CATEGORIES = [
   'Others',
   'Savings',
 ] as const;
+
+const TRANSACTIONS_PAGE_SIZE = 50;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object';
@@ -100,9 +118,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
+  const [hasMoreTransactions, setHasMoreTransactions] = useState(false);
+  const [loadingMoreTransactions, setLoadingMoreTransactions] = useState(false);
   const [userConfig, setUserConfig] = useState<UserConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const activeLoadIdRef = useRef(0);
+  const lastTransactionSnapshotRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
 
   const requireFirestore = () => {
     if (!isFirebaseConfigured || !fireAuth || !db) {
@@ -114,6 +136,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const userDocRef = (uid: string) => doc(requireFirestore(), 'users', uid);
   const transactionsCollectionRef = (uid: string) => collection(requireFirestore(), 'users', uid, 'transactions');
   const savingsGoalsCollectionRef = (uid: string) => collection(requireFirestore(), 'users', uid, 'savingsGoals');
+  const monthlySummaryDocRef = (uid: string, summaryId: string) =>
+    doc(requireFirestore(), 'users', uid, 'monthlySummaries', summaryId);
 
   const asArray = (value: unknown): Record<string, unknown>[] => {
     if (!Array.isArray(value)) return [];
@@ -188,6 +212,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  const normalizeMonthlySummary = (id: string, data: Record<string, unknown>): MonthlySummary | null => {
+    const expenseTotal = toNumber(data.expenseTotal);
+    const savingTotal = toNumber(data.savingTotal);
+    const transactionCount = toNumber(data.transactionCount);
+    const updatedAt = toStringValue(data.updatedAt);
+
+    if (!id || !Number.isFinite(expenseTotal) || !Number.isFinite(savingTotal) || !Number.isFinite(transactionCount)) {
+      return null;
+    }
+
+    return {
+      id,
+      expenseTotal,
+      savingTotal,
+      transactionCount,
+      updatedAt,
+    };
+  };
+
   const defaultUserConfig = (appUser: AppUser): UserConfig => {
     const now = new Date().toISOString();
     return {
@@ -199,31 +242,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  const normalizeUserConfig = (appUser: AppUser, data: Record<string, unknown> | null): UserConfig => {
+    const fallbackConfig = defaultUserConfig(appUser);
+    const monthlyBudget = toNumber(data?.monthlyBudget);
+    const theme =
+      data?.theme === 'dark' || data?.theme === 'light' || data?.theme === 'gold'
+        ? data.theme
+        : fallbackConfig.theme;
+    const createdAt = toStringValue(data?.createdAt) || fallbackConfig.createdAt;
+    const updatedAt = toStringValue(data?.updatedAt) || fallbackConfig.updatedAt;
+
+    return {
+      email: toStringValue(data?.email) || fallbackConfig.email,
+      monthlyBudget: Number.isFinite(monthlyBudget) && monthlyBudget > 0 ? monthlyBudget : fallbackConfig.monthlyBudget,
+      theme,
+      createdAt,
+      updatedAt,
+    };
+  };
+
+  const getSummaryIdFromDate = (date: string) => date.slice(0, 7);
+
+  const getCurrentSummaryId = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const getSummaryDelta = (tx: Pick<Transaction, 'amount' | 'type'>, direction: 1 | -1) => ({
+    expenseTotal: tx.type === 'expense' ? tx.amount * direction : 0,
+    savingTotal: tx.type === 'saving' ? tx.amount * direction : 0,
+    transactionCount: direction,
+  });
+
+  const applyMonthlySummaryDelta = (summaryId: string, delta: ReturnType<typeof getSummaryDelta>) => {
+    setMonthlySummary((currentSummary) => {
+      if (!currentSummary || currentSummary.id !== summaryId) return currentSummary;
+      return {
+        ...currentSummary,
+        expenseTotal: Math.max(0, currentSummary.expenseTotal + delta.expenseTotal),
+        savingTotal: Math.max(0, currentSummary.savingTotal + delta.savingTotal),
+        transactionCount: Math.max(0, currentSummary.transactionCount + delta.transactionCount),
+        updatedAt: new Date().toISOString(),
+      };
+    });
+  };
+
   const loadFirestoreDataForUser = async (appUser: AppUser, loadId: number) => {
     setLoading(true);
 
     try {
-      console.log('[PaiseFlow Firestore] Loading user data', {
-        uid: appUser.uid,
-        userDocPath: `users/${appUser.uid}`,
-        transactionsPath: `users/${appUser.uid}/transactions`,
-        savingsGoalsPath: `users/${appUser.uid}/savingsGoals`,
-      });
-
       const [configSnap, txSnap, goalsSnap] = await Promise.all([
         getDoc(userDocRef(appUser.uid)),
-        getDocs(transactionsCollectionRef(appUser.uid)),
-        getDocs(savingsGoalsCollectionRef(appUser.uid)),
+        getDocs(query(transactionsCollectionRef(appUser.uid), orderBy('date', 'desc'), limit(TRANSACTIONS_PAGE_SIZE))),
+        getDocs(query(savingsGoalsCollectionRef(appUser.uid), orderBy('deadline', 'asc'))),
       ]);
 
       let nextConfig: UserConfig;
       const userDocData = configSnap.exists() ? (configSnap.data() as UserDocumentData) : null;
       if (configSnap.exists()) {
-        const { transactions: _transactions, savingsGoals: _savingsGoals, ...configData } = userDocData as UserDocumentData;
-        nextConfig = configData as UserConfig;
+        nextConfig = normalizeUserConfig(appUser, userDocData as unknown as Record<string, unknown>);
       } else {
         nextConfig = defaultUserConfig(appUser);
-        await setDoc(userDocRef(appUser.uid), nextConfig, { merge: true });
+        await setDoc(userDocRef(appUser.uid), nextConfig);
       }
 
       const subcollectionTransactions = txSnap.docs
@@ -246,29 +326,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .map((goal, index) => normalizeSavingsGoal(toStringValue(goal.id) || `embedded_goal_${index}`, goal))
         .filter((goal): goal is SavingsGoal => goal !== null);
       const nextSavingsGoals = mergeById(subcollectionSavingsGoals, embeddedSavingsGoals);
-
-      console.log('[PaiseFlow Firestore] Loaded user data', {
-        uid: appUser.uid,
-        userDocExists: configSnap.exists(),
-        subcollectionTransactions: subcollectionTransactions.length,
-        embeddedTransactions: embeddedTransactions.length,
-        appliedTransactions: nextTransactions.length,
-        subcollectionSavingsGoals: subcollectionSavingsGoals.length,
-        embeddedSavingsGoals: embeddedSavingsGoals.length,
-        appliedSavingsGoals: nextSavingsGoals.length,
-      });
+      const currentSummaryId = getCurrentSummaryId();
+      const summarySnap = await getDoc(monthlySummaryDocRef(appUser.uid, currentSummaryId));
+      const nextMonthlySummary = summarySnap.exists()
+        ? normalizeMonthlySummary(summarySnap.id, summarySnap.data())
+        : null;
 
       if (activeLoadIdRef.current !== loadId) return;
 
+      lastTransactionSnapshotRef.current = txSnap.docs[txSnap.docs.length - 1] ?? null;
       setUserConfig(nextConfig);
       setTransactions(nextTransactions);
       setSavingsGoals(nextSavingsGoals);
-      console.log('State after set:', nextTransactions);
-      console.log('[PaiseFlow Firestore] Applied data to React state', {
-        uid: appUser.uid,
-        transactions: nextTransactions.length,
-        savingsGoals: nextSavingsGoals.length,
-      });
+      setMonthlySummary(nextMonthlySummary);
+      setHasMoreTransactions(txSnap.docs.length === TRANSACTIONS_PAGE_SIZE);
     } catch (error) {
       console.error('Could not load Firestore data', error);
       if (activeLoadIdRef.current !== loadId) return;
@@ -276,6 +347,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUserConfig(null);
       setTransactions([]);
       setSavingsGoals([]);
+      setMonthlySummary(null);
+      setHasMoreTransactions(false);
     } finally {
       if (activeLoadIdRef.current === loadId) {
         setLoading(false);
@@ -293,6 +366,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUserConfig(null);
     setTransactions([]);
     setSavingsGoals([]);
+    setMonthlySummary(null);
+    setHasMoreTransactions(false);
+    lastTransactionSnapshotRef.current = null;
     setLoading(isLoading);
   };
 
@@ -331,18 +407,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [auth.user?.uid]);
 
   useEffect(() => {
-    console.log('[PaiseFlow State] transactions changed', {
-      count: transactions.length,
-      transactions,
-    });
-  }, [transactions]);
-
-  useEffect(() => {
-    console.log('[PaiseFlow State] savingsGoals changed', {
-      count: savingsGoals.length,
-      savingsGoals,
-    });
-  }, [savingsGoals]);
+    if (!userConfig?.theme) return;
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(THEME_STORAGE_KEY, userConfig.theme);
+    }
+  }, [userConfig?.theme]);
 
   // ---------------------------------------------------------
   // Auth Logic (Firebase Auth when configured, local auth otherwise)
@@ -403,11 +472,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       monthlyBudget: budget,
       updatedAt: new Date().toISOString(),
     };
-    await setDoc(userDocRef(auth.user.uid), nextConfig, { merge: true });
+    await setDoc(userDocRef(auth.user.uid), nextConfig);
     setUserConfig(nextConfig);
   };
 
-  const updateTheme = async (theme: 'light' | 'dark') => {
+  const updateTheme = async (theme: AppTheme) => {
     if (!auth.user) return;
 
     const existingConfig = userConfig || defaultUserConfig(auth.user);
@@ -416,8 +485,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       theme,
       updatedAt: new Date().toISOString(),
     };
-    await setDoc(userDocRef(auth.user.uid), nextConfig, { merge: true });
+    await setDoc(userDocRef(auth.user.uid), nextConfig);
     setUserConfig(nextConfig);
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }
   };
 
   // ---------------------------------------------------------
@@ -429,6 +502,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const timestampStr = new Date().toISOString();
     const txId = newDocumentId();
     const txRef = doc(transactionsCollectionRef(auth.user.uid), txId);
+    const summaryId = getSummaryIdFromDate(data.date);
+    const summaryDelta = getSummaryDelta(data, 1);
     const newTx: Transaction = {
       id: txId,
       amount: data.amount,
@@ -439,15 +514,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: timestampStr,
       updatedAt: timestampStr,
     };
-    await setDoc(txRef, newTx);
-    console.log('[PaiseFlow Firestore] Saved transaction', {
-      path: `users/${auth.user.uid}/transactions/${txId}`,
-      transaction: newTx,
-    });
+    const batch = writeBatch(requireFirestore());
+    batch.set(txRef, newTx);
+    batch.set(
+      monthlySummaryDocRef(auth.user.uid, summaryId),
+      {
+        expenseTotal: increment(summaryDelta.expenseTotal),
+        savingTotal: increment(summaryDelta.savingTotal),
+        transactionCount: increment(1),
+        updatedAt: timestampStr,
+      },
+      { merge: true }
+    );
+    await batch.commit();
 
     setTransactions((currentTransactions) =>
       [...currentTransactions, newTx].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     );
+    applyMonthlySummaryDelta(summaryId, summaryDelta);
   };
 
   const updateTransaction = async (
@@ -456,31 +540,113 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ) => {
     if (!auth.user) return;
     const timestampStr = new Date().toISOString();
+    const existingTransaction = transactions.find((tx) => tx.id === id);
     const txRef = doc(transactionsCollectionRef(auth.user.uid), id);
     const updatePayload = {
       ...data,
       updatedAt: timestampStr,
     };
-    await setDoc(txRef, updatePayload, { merge: true });
-    console.log('[PaiseFlow Firestore] Updated transaction', {
-      path: `users/${auth.user.uid}/transactions/${id}`,
-      transaction: updatePayload,
-    });
+    const nextTransaction = existingTransaction ? { ...existingTransaction, ...data, updatedAt: timestampStr } : null;
+    const batch = writeBatch(requireFirestore());
+    batch.set(txRef, updatePayload, { merge: true });
+
+    if (existingTransaction && nextTransaction) {
+      const previousSummaryId = getSummaryIdFromDate(existingTransaction.date);
+      const nextSummaryId = getSummaryIdFromDate(nextTransaction.date);
+      const previousDelta = getSummaryDelta(existingTransaction, -1);
+      const nextDelta = getSummaryDelta(nextTransaction, 1);
+      batch.set(
+        monthlySummaryDocRef(auth.user.uid, previousSummaryId),
+        {
+          expenseTotal: increment(previousDelta.expenseTotal),
+          savingTotal: increment(previousDelta.savingTotal),
+          transactionCount: increment(-1),
+          updatedAt: timestampStr,
+        },
+        { merge: true }
+      );
+      batch.set(
+        monthlySummaryDocRef(auth.user.uid, nextSummaryId),
+        {
+          expenseTotal: increment(nextDelta.expenseTotal),
+          savingTotal: increment(nextDelta.savingTotal),
+          transactionCount: increment(1),
+          updatedAt: timestampStr,
+        },
+        { merge: true }
+      );
+    }
+
+    await batch.commit();
 
     setTransactions((currentTransactions) =>
       currentTransactions
         .map((tx) => (tx.id === id ? { ...tx, ...data, updatedAt: timestampStr } : tx))
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     );
+
+    if (existingTransaction && nextTransaction) {
+      applyMonthlySummaryDelta(getSummaryIdFromDate(existingTransaction.date), getSummaryDelta(existingTransaction, -1));
+      applyMonthlySummaryDelta(getSummaryIdFromDate(nextTransaction.date), getSummaryDelta(nextTransaction, 1));
+    }
   };
 
   const deleteTransaction = async (id: string) => {
     if (!auth.user) return;
-    await deleteDoc(doc(transactionsCollectionRef(auth.user.uid), id));
-    console.log('[PaiseFlow Firestore] Deleted transaction', {
-      path: `users/${auth.user.uid}/transactions/${id}`,
-    });
+    const existingTransaction = transactions.find((tx) => tx.id === id);
+    const batch = writeBatch(requireFirestore());
+    batch.delete(doc(transactionsCollectionRef(auth.user.uid), id));
+
+    if (existingTransaction) {
+      const summaryId = getSummaryIdFromDate(existingTransaction.date);
+      const summaryDelta = getSummaryDelta(existingTransaction, -1);
+      batch.set(
+        monthlySummaryDocRef(auth.user.uid, summaryId),
+        {
+          expenseTotal: increment(summaryDelta.expenseTotal),
+          savingTotal: increment(summaryDelta.savingTotal),
+          transactionCount: increment(-1),
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    }
+
+    await batch.commit();
     setTransactions((currentTransactions) => currentTransactions.filter((tx) => tx.id !== id));
+
+    if (existingTransaction) {
+      applyMonthlySummaryDelta(getSummaryIdFromDate(existingTransaction.date), getSummaryDelta(existingTransaction, -1));
+    }
+  };
+
+  const loadMoreTransactions = async () => {
+    if (!auth.user || !lastTransactionSnapshotRef.current || loadingMoreTransactions || !hasMoreTransactions) return;
+
+    setLoadingMoreTransactions(true);
+    try {
+      const nextSnap = await getDocs(
+        query(
+          transactionsCollectionRef(auth.user.uid),
+          orderBy('date', 'desc'),
+          startAfter(lastTransactionSnapshotRef.current),
+          limit(TRANSACTIONS_PAGE_SIZE)
+        )
+      );
+      const nextTransactions = nextSnap.docs
+        .map((snapshot) => normalizeTransaction(snapshot.id, snapshot.data()))
+        .filter((transaction): transaction is Transaction => transaction !== null);
+
+      lastTransactionSnapshotRef.current = nextSnap.docs[nextSnap.docs.length - 1] ?? lastTransactionSnapshotRef.current;
+      setHasMoreTransactions(nextSnap.docs.length === TRANSACTIONS_PAGE_SIZE);
+      setTransactions((currentTransactions) =>
+        mergeById(currentTransactions, nextTransactions).sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        )
+      );
+    } finally {
+      setLoadingMoreTransactions(false);
+    }
   };
 
   // ---------------------------------------------------------
@@ -488,11 +654,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ---------------------------------------------------------
 
   const addSavingsGoal = async (data: Omit<SavingsGoal, 'id' | 'createdAt' | 'updatedAt'>) => {
-    console.log('[PaiseFlow Firestore] addSavingsGoal called', {
-      uid: auth.user?.uid,
-      data,
-    });
-
     if (!auth.user) {
       console.warn('[PaiseFlow Firestore] Cannot save savings goal without an authenticated user');
       return;
@@ -512,10 +673,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: timestampStr,
     };
     await setDoc(goalRef, newGoal);
-    console.log('[PaiseFlow Firestore] Saved savings goal', {
-      path: `users/${auth.user.uid}/savingsGoals/${goalId}`,
-      savingsGoal: newGoal,
-    });
     setSavingsGoals((currentGoals) => [...currentGoals, newGoal]);
   };
 
@@ -531,10 +688,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: timestampStr,
     };
     await setDoc(goalRef, updatePayload, { merge: true });
-    console.log('[PaiseFlow Firestore] Updated savings goal', {
-      path: `users/${auth.user.uid}/savingsGoals/${id}`,
-      savingsGoal: updatePayload,
-    });
 
     setSavingsGoals((currentGoals) =>
       currentGoals.map((goal) => (goal.id === id ? { ...goal, ...data, updatedAt: timestampStr } : goal))
@@ -544,9 +697,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteSavingsGoal = async (id: string) => {
     if (!auth.user) return;
     await deleteDoc(doc(savingsGoalsCollectionRef(auth.user.uid), id));
-    console.log('[PaiseFlow Firestore] Deleted savings goal', {
-      path: `users/${auth.user.uid}/savingsGoals/${id}`,
-    });
     setSavingsGoals((currentGoals) => currentGoals.filter((goal) => goal.id !== id));
   };
 
@@ -556,6 +706,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         auth,
         transactions,
         savingsGoals,
+        monthlySummary,
+        hasMoreTransactions,
+        loadingMoreTransactions,
         userConfig,
         loading: loading || auth.loading,
         login,
@@ -568,6 +721,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addTransaction,
         updateTransaction,
         deleteTransaction,
+        loadMoreTransactions,
         addSavingsGoal,
         updateSavingsGoal,
         deleteSavingsGoal,

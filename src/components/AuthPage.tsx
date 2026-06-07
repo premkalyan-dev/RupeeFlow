@@ -131,7 +131,7 @@ export const AuthPage: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-1.5ClassName">
+              <label htmlFor="email" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-1.5">
                 Email Address
               </label>
               <div className="relative rounded-xl shadow-sm text-slate-400 focus-within:text-indigo-600 dark:focus-within:text-emerald-400">

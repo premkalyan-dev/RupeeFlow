@@ -3,17 +3,120 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext.tsx';
 import { SavingsGoal } from '../types.ts';
 import { formatINR, formatDate } from '../utils.ts';
 import { Target, Plus, Trash2, Edit2, Check, Calendar, TrendingUp, Sparkles, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+const getFocusableElements = (container: HTMLElement) =>
+  Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  );
+
+const DeleteGoalConfirmationModal: React.FC<{
+  goal: SavingsGoal | null;
+  isDeleting: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}> = ({ goal, isDeleting, error, onCancel, onConfirm }) => {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!goal) return;
+
+    const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    cancelButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onCancel();
+        return;
+      }
+
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusableElements = getFocusableElements(dialogRef.current);
+      if (focusableElements.length === 0) return;
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previousActiveElement?.focus();
+    };
+  }, [goal, onCancel]);
+
+  if (!goal) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm transition-opacity duration-200">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-goal-title"
+        aria-describedby="delete-goal-message"
+        className="w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[20px] shadow-2xl p-5 font-sans select-none transition-all duration-200"
+      >
+        <h3 id="delete-goal-title" className="font-heading text-base font-bold text-slate-900 dark:text-white">
+          Delete Goal?
+        </h3>
+        <p id="delete-goal-message" className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+          This will remove "{goal.name}" from your savings goals.
+        </p>
+
+        {error && (
+          <div className="mt-4 p-3 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-900/30">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-5 flex items-center justify-end gap-3">
+          <button
+            ref={cancelButtonRef}
+            type="button"
+            onClick={onCancel}
+            disabled={isDeleting}
+            className="min-h-11 px-4 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 hover:dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="min-h-11 px-5 rounded-xl text-xs font-bold bg-red-500 hover:bg-red-600 text-white shadow-md transition disabled:opacity-50"
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const SavingsGoals: React.FC = () => {
   const { savingsGoals, addSavingsGoal, updateSavingsGoal, deleteSavingsGoal } = useApp();
   const [isExpanding, setIsExpanding] = useState(false);
   const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
+  const [deleteGoal, setDeleteGoal] = useState<SavingsGoal | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeletingGoal, setIsDeletingGoal] = useState(false);
 
   // Form states
   const [name, setName] = useState('');
@@ -105,6 +208,22 @@ export const SavingsGoals: React.FC = () => {
     }
   };
 
+  const handleConfirmDeleteGoal = async () => {
+    if (!deleteGoal) return;
+
+    setIsDeletingGoal(true);
+    setDeleteError(null);
+
+    try {
+      await deleteSavingsGoal(deleteGoal.id);
+      setDeleteGoal(null);
+    } catch (err: any) {
+      setDeleteError(err?.message || 'Could not delete this goal.');
+    } finally {
+      setIsDeletingGoal(false);
+    }
+  };
+
   return (
     <div className="space-y-6 font-sans select-none" id="savings-goals-panel">
       
@@ -155,6 +274,7 @@ export const SavingsGoals: React.FC = () => {
                 }}
                 className="p-1 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                 type="button"
+                aria-label="Close savings goal form"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -313,19 +433,20 @@ export const SavingsGoals: React.FC = () => {
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => handleOpenEdit(goal)}
-                      className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition touch-manipulation cursor-pointer"
+                      className="min-h-11 min-w-11 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition touch-manipulation cursor-pointer inline-flex items-center justify-center"
                       title="Edit Goal"
+                      aria-label={`Edit ${goal.name}`}
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm(`Are you sure you want to delete savings goal "${goal.name}"?`)) {
-                          deleteSavingsGoal(goal.id);
-                        }
+                        setDeleteGoal(goal);
+                        setDeleteError(null);
                       }}
-                      className="p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition touch-manipulation cursor-pointer"
+                      className="min-h-11 min-w-11 p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition touch-manipulation cursor-pointer inline-flex items-center justify-center"
                       title="Delete Goal"
+                      aria-label={`Delete ${goal.name}`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -396,6 +517,18 @@ export const SavingsGoals: React.FC = () => {
           })}
         </div>
       )}
+
+      <DeleteGoalConfirmationModal
+        goal={deleteGoal}
+        isDeleting={isDeletingGoal}
+        error={deleteError}
+        onCancel={() => {
+          if (isDeletingGoal) return;
+          setDeleteGoal(null);
+          setDeleteError(null);
+        }}
+        onConfirm={handleConfirmDeleteGoal}
+      />
     </div>
   );
 };

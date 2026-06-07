@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { Transaction, TransactionType, TransactionCategory, ExpenseCategory } from '../types.ts';
+import React, { useRef, useState, useEffect } from 'react';
+import { Transaction, TransactionType, TransactionCategory } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
-import { EXPENSE_CATEGORIES, getCategoryMeta, formatINR } from '../utils.ts';
+import { EXPENSE_CATEGORIES } from '../utils.ts';
 import { X, Check } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -16,12 +16,20 @@ interface TransactionModalProps {
   editTransaction?: Transaction | null;
 }
 
+const getFocusableElements = (container: HTMLElement) =>
+  Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  );
+
 export const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen,
   onClose,
   editTransaction = null,
 }) => {
-  const { addTransaction, updateTransaction, userConfig } = useApp();
+  const { addTransaction, updateTransaction } = useApp();
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const [amount, setAmount] = useState<string>('');
   const [type, setType] = useState<TransactionType>('expense');
   const [category, setCategory] = useState<TransactionCategory>('Food');
@@ -52,14 +60,47 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   // If Type shifts, pivot category selection
   useEffect(() => {
-    if (!editTransaction) {
-      if (type === 'saving') {
-        setCategory('Savings');
-      } else {
-        setCategory('Food');
-      }
+    if (type === 'saving') {
+      setCategory('Savings');
+    } else if (category === 'Savings') {
+      setCategory('Food');
     }
-  }, [type, editTransaction]);
+  }, [type, category]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+        return;
+      }
+
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusableElements = getFocusableElements(dialogRef.current);
+      if (focusableElements.length === 0) return;
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previousActiveElement?.focus();
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -106,6 +147,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm select-none">
       <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="transaction-modal-title"
+        tabIndex={-1}
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -113,12 +159,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         id="transaction-modal-card"
       >
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white font-heading">
+          <h3 id="transaction-modal-title" className="text-lg font-bold text-slate-900 dark:text-white font-heading">
             {editTransaction ? 'Edit Record' : 'Add Record'}
           </h3>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-700 hover:dark:text-slate-200 transition"
+            className="min-h-11 min-w-11 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-700 hover:dark:text-slate-200 transition inline-flex items-center justify-center"
+            aria-label="Close record form"
           >
             <X className="w-5 h-5" />
           </button>
@@ -136,7 +183,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             <button
               type="button"
               onClick={() => setType('expense')}
-              className={`flex-1 py-2.5 text-xs font-semibold rounded-xl text-center transition cursor-pointer ${
+              aria-pressed={type === 'expense'}
+                className={`min-h-11 flex-1 py-2.5 text-xs font-semibold rounded-xl text-center transition cursor-pointer ${
                 type === 'expense'
                   ? 'bg-indigo-900 text-white dark:bg-slate-800 shadow-md'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
@@ -147,7 +195,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             <button
               type="button"
               onClick={() => setType('saving')}
-              className={`flex-1 py-2.5 text-xs font-semibold rounded-xl text-center transition cursor-pointer ${
+              aria-pressed={type === 'saving'}
+                className={`min-h-11 flex-1 py-2.5 text-xs font-semibold rounded-xl text-center transition cursor-pointer ${
                 type === 'saving'
                   ? 'bg-emerald-600 text-white dark:bg-emerald-600 shadow-md'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'

@@ -43,8 +43,16 @@ export interface SavingsGoal {
 export interface UserConfig {
   email: string;
   monthlyBudget: number;
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'dark' | 'gold';
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface MonthlySummary {
+  id: string; // YYYY-MM
+  expenseTotal: number;
+  savingTotal: number;
+  transactionCount: number;
   updatedAt: string;
 }
 
