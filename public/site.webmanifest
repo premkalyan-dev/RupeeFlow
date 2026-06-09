@@ -1,11 +1,10 @@
 {
   "name": "PaiseFlow",
   "short_name": "PaiseFlow",
-  "description": "Track daily expenses, savings goals, and monthly budgets with PaiseFlow.",
+  "description": "India's simplest expense and savings tracker",
   "start_url": "/",
-  "scope": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
+  "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "icons": [
     {
