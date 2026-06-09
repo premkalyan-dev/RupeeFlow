@@ -137,7 +137,6 @@ const AdUnit = ({ slotId, visibility, className = '' }: AdUnitProps) => {
           height={slot.height}
           loading="lazy"
           scrolling="no"
-          sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
           className="block border-0"
           style={{
             width: slot.width,
